@@ -64,21 +64,13 @@ void f_projection(double *res_c, double *res_f, double *phi, int level, params p
     
     L=p.size[level];
     Lc=p.size[level+1];
-    double r[L];
+    double rtemp[L];
 
-    // printf("\nL%d, Lc%d\n",L,Lc);
-    
-    // for(int x=0;x<L; x++) r[x]=res_f[x]- phi[x] + p.scale[level] * (phi[(x+1)%L] + phi[(x-1+L)%L]); 
-    
     // Find residue
-    // for(int x=0;x<L; x++) r[x]=res_f[x]- phi[x] + p.scale[level] * (phi[(x+1)%L] + phi[(x-1+L)%L]); 
-    f_residue(phi,res_f,r,level,p);
-    
-    // for(int x=0; x<Lc; x++) printf("%f\t",r[x]);
-    // cout<<endl;
+    f_residue(phi,res_f,rtemp,level,p);
     
     // Project residue
-    for(int x=0;x<Lc; x++) res_c[x]=0.5*( r[2*x] + r[(2*x+1)%L] ); 
+    for(int x=0;x<Lc; x++) res_c[x]=0.5*( rtemp[2*x] + rtemp[(2*x+1)%L] ); 
     
 }
 
@@ -105,29 +97,34 @@ int main ()
     double **phi, **b, **r;
     
     double resmag,res_threshold;
-    int L, min_L;
-    
-    L=64;
-    // Set parameters
-    p.L=L; // size of matrix
-    p.m=0.5; // mass
-    p.size[0]=p.L;
-    p.a[0]=1.0;
-    p.scale[0]=1.0/(2.0+p.m*p.m);
-    p.nlevels=3;
-    int num_iters=5;
-    int max_iters=1000; // max iterations of main code
-    res_threshold=1.0e-14;
+    int L, max_levels;
     int iter,lvl;
     
-    // L = 8 -> max_levels=3 
-    min_L=2*(int)pow(2,p.nlevels);
-    if (L<min_L){
-        printf(" Error. Too many levels %d for Lattice of size %d. Need at least lattice size %d ",p.nlevels,p.L,min_L);
+    // #################### 
+    // Set parameters
+    L=128;
+    p.m=0.01; // mass
+    p.nlevels=6;
+    int num_iters=8000;  // number of Gauss-Seidel iterations
+    int max_iters=10000; // max iterations of main code
+    res_threshold=1.0e-14;
+    p.a[0]=1.0;
+    // #################### 
+    
+    p.L=L; // size of matrix
+    p.size[0]=p.L;
+    p.scale[0]=1.0/(2.0+p.m*p.m*p.a[0]*p.a[0]);
+    // p.scale[0]=1.0/(2.0+p.m*p.m);
+    
+    max_levels=(int)log2(L)-1 ; // L = 8 -> max_levels=2
+    printf("Max levels for lattice %d is %d\n",L,max_levels);
+    
+    if (p.nlevels>max_levels){
+        printf(" Error. Too many levels %d. Can only have %d levels for lattice of size  %d",p.nlevels,max_levels,p.L);
         exit(1);
     }
     
-    printf("V cycle with %d levels for lattice of size %d\n",p.nlevels,L);
+    printf("\nV cycle with %d levels for lattice of size %d\n",p.nlevels,L);
     
     phi= new double*[L];
     r= new double*[L];
@@ -136,9 +133,8 @@ int main ()
     for(int level=1;level<p.nlevels;level++){
         p.size[level]=p.size[level-1]/2;
         p.a[level]=2.0*p.a[level-1];
-        // p.scale[level]=1.0/(2+p.m*p.m*p.a*p.a);
-        p.scale[level]=1.0/(2+p.m*p.m);
-        // printf("%d %d\n",level,p.size[level]);
+        p.scale[level]=1.0/(2+p.m*p.m*p.a[level]*p.a[level]);
+        // p.scale[level]=1.0/(2+p.m*p.m);
     }
     for(int i=0; i< p.nlevels; i++){
         phi[i]=new double[L];
@@ -155,12 +151,17 @@ int main ()
     for(int j=0; j< L; j++) cout<<r[0][j]<<"\t";
     
     resmag=f_get_residue(phi[0],r[0],r[1],0,p);
-    cout<<"Residue "<<resmag<<endl;
+    cout<<"\nResidue "<<resmag<<endl;
     
     // iter=0;
     // while (resmag > 0.0001 && iter < 100){ iter++;
     for(iter=0; iter < max_iters; iter++){
-        if (resmag < res_threshold) { printf("\nLoop breaks at iteration %d with residue %e < %e",iter,resmag,res_threshold); break;}
+        if (resmag < res_threshold) { 
+            printf("\nLoop breaks at iteration %d with residue %e < %e",iter,resmag,res_threshold); 
+            break;}
+        else if (resmag > 1e6) {
+            printf("\nDiverging. Residue %g at iteration %d",resmag,iter);
+            break;}
         // Go down
         for(lvl=0;lvl<p.nlevels-1;lvl++){
             relax(phi[lvl],r[lvl], lvl, num_iters,p); // Perform Gauss-Seidel
@@ -172,60 +173,19 @@ int main ()
             if(lvl>0) f_interpolate(phi[lvl-1],phi[lvl],lvl,p);
         }
     
-    if(iter%2==0) {
+    if(iter%10==0) {
         resmag=f_get_residue(phi[0],r[0],r[1],0,p);
         printf("At iteration %d, the mag residue is %g \n",iter,resmag);   }
 }
-    // for(int i=0; i<p.nlevels; i++){
-    //     for (int j=0; j<p.size[i]; j++) printf("%f\t",phi[i][j]);
-    //          cout<<endl;}
+    // for(int i=0; i<p.nlevels; i++)
+    //     for (int j=0; j<p.size[i]; j++) 
+    //         printf("%f\t",phi[i][j]);
+    
     cout<<endl;
-    free(phi);free(b),free(r);
+    delete phi; delete r; delete b;
     return 0;
     
 }
-
-// void f_gauss(double *phi, double *b, double *r, double m, int num_iters,int L){
-    
-//     double sigma; 
-   
-//     for(int k=0;k<num_iters;k++){
-//         for(int i=0;i<L;i++){
-//             phi[i]=(phi[(i+1)%L]+phi[(i-1+L)%L] -b[i])/(2+m*m);
-//             // cout<<"phi "<<phi[i]<<endl;
-//         }
-//     }
-//     printf("\nGauss-Seidel solution is \n");
-//     for(int i=0;i<L;i++) cout<<phi[i]<<"\t";
-    
-//     f_residue(phi,b,r,m,L);
-//     cout<<"\nResidue"<<endl;
-//     for(int i=0;i<L;i++){ cout<<r[i]<<"\t";}
-//     cout<<endl;
-// }
-
-// void f_jacobi(double *phi, double *b, double *r, double m, int num_iters,int L){
-    
-//     double *phi_new;
-//     double sigma; 
-
-//     phi_new=(double*) malloc(L*sizeof(double));
-    
-//     for(int k=0;k<num_iters;k++){
-//         for(int i=0;i<L;i++){
-//             phi_new[i]=(phi[(i+1)%L]+phi[(i-1+L)%L] -b[i])/(2+m*m);
-//             // cout<<"phi "<<phi[i]<<endl;
-//         }
-//         for(int i=0;i<L;i++) phi[i]=phi_new[i];
-//     }
-//     printf("\nJacobi solution is \n");
-//     for(int i=0;i<L;i++) cout<<phi[i]<<"\t";
-    
-//     f_residue(phi,b,r,m,L);
-//     cout<<"\nResidue"<<endl;
-//     for(int i=0;i<L;i++){ cout<<r[i]<<"\t";}
-//     cout<<endl;    
-// }
 
 
 
