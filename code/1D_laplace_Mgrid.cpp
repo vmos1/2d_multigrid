@@ -1,5 +1,5 @@
 /* Venkitesh Ayyar, Oct8, 2021
-# Simple code to implement Gauss-Seidel solver
+Implementing 1D laplace Multigrid
 */
 
 #include <iostream>
@@ -94,7 +94,7 @@ int main ()
     { 
     params p;
     
-    double **phi, **b, **r;
+    double **phi, **r;
     
     double resmag,res_threshold;
     int L, max_levels;
@@ -102,8 +102,8 @@ int main ()
     
     // #################### 
     // Set parameters
-    L=128;
-    p.m=0.01; // mass
+    L=512;
+    p.m=0.005; // mass
     p.nlevels=6;
     int num_iters=8000;  // number of Gauss-Seidel iterations
     int max_iters=10000; // max iterations of main code
@@ -128,22 +128,20 @@ int main ()
     
     phi= new double*[L];
     r= new double*[L];
-    b= new double*[L];
     
-    for(int level=1;level<p.nlevels;level++){
+    for(int level=1;level<p.nlevels+1;level++){
         p.size[level]=p.size[level-1]/2;
         p.a[level]=2.0*p.a[level-1];
         p.scale[level]=1.0/(2+p.m*p.m*p.a[level]*p.a[level]);
         // p.scale[level]=1.0/(2+p.m*p.m);
     }
-    for(int i=0; i< p.nlevels; i++){
+    for(int i=0; i< p.nlevels+1; i++){
         phi[i]=new double[L];
-        r[i]=new double[L];
-        b[i]=new double[L]; }
+        r[i]=new double[L];}
     
-    for(int i=0; i< p.nlevels; i++){
+    for(int i=0; i< p.nlevels+1; i++){
         for(int j=0; j< L; j++){
-        phi[i][j]=0.0; r[i][j]=0.0; b[i][j]=0.0;
+        phi[i][j]=0.0; r[i][j]=0.0;
         }}
  
     r[0][0]=1.0;r[0][1]=2.0;r[0][2]=5.0;r[0][3]=7.5;
@@ -182,7 +180,7 @@ int main ()
     //         printf("%f\t",phi[i][j]);
     
     cout<<endl;
-    delete phi; delete r; delete b;
+    delete phi; delete r;
     return 0;
     
 }
