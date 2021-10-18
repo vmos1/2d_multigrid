@@ -116,7 +116,7 @@ int main ()
     // #################### 
     // Set parameters
     L=256;
-    p.m=0.01; // mass
+    p.m=0.001; // mass
     p.nlevels=5;
     int num_iters=20;  // number of Gauss-Seidel iterations
     int max_iters=10000; // max iterations of main code
@@ -169,12 +169,7 @@ int main ()
     // exit(1);
     
     for(iter=0; iter < max_iters; iter++){
-        if (resmag < res_threshold) { 
-            printf("\nLoop breaks at iteration %d with residue %e < %e",iter,resmag,res_threshold); 
-            break;}
-        else if (resmag > 1e6) {
-            printf("\nDiverging. Residue %g at iteration %d",resmag,iter);
-            break;}
+
         // Go down
         for(lvl=0;lvl<p.nlevels;lvl++){
             relax(phi[lvl],r[lvl], lvl, num_iters,p); // Perform Gauss-Seidel
@@ -187,9 +182,15 @@ int main ()
             relax(phi[lvl],r[lvl], lvl, num_iters,p); // Perform Gauss-Seidel
             if(lvl>0) f_interpolate(phi[lvl-1],phi[lvl],lvl,p);
         }
-    
+        resmag=f_get_residue(phi[0],r[0],r[1],0,p);
+        if (resmag < res_threshold) { 
+            printf("\nLoop breaks at iteration %d with residue %e < %e",iter,resmag,res_threshold); 
+            break;}
+        else if (resmag > 1e6) {
+            printf("\nDiverging. Residue %g at iteration %d",resmag,iter);
+            break;}    
+        
         if(iter%10==0) {
-            resmag=f_get_residue(phi[0],r[0],r[1],0,p);
             printf("At iteration %d, the mag residue is %g \n",iter,resmag);   }
     }
 //     // for(int i=0; i<p.nlevels; i++)
