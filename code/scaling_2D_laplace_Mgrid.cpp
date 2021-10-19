@@ -1,5 +1,6 @@
 /* Venkitesh Ayyar, Oct14, 2021
 Implementing 2D laplace Multigrid
+Adding input and output for running scaling tests
 */
 
 #include <iostream>
@@ -105,9 +106,11 @@ void f_interpolate(double **phi_f,double **phi_c,int lev,params p)
   
 }
 
-int main ()
+int main (int argc, char *argv[])
     { 
     params p;
+    
+    FILE * pfile = fopen ("results_gen_scaling.txt","a"); 
     
     double resmag,res_threshold;
     int L, max_levels;
@@ -115,12 +118,18 @@ int main ()
     
     // #################### 
     // Set parameters
-    L=2048;
-    p.m=0.002; // mass
-    p.nlevels=9;
-    int num_iters=20;  // number of Gauss-Seidel iterations
+    // L=256;
+    // p.m=0.002; // mass
+    // p.nlevels=6;
+    // int num_iters=20;  // number of Gauss-Seidel iterations
+
+    L=atoi(argv[1]);
+    p.m=atof(argv[2]);
+    p.nlevels=atoi(argv[3]);
+    int num_iters=atoi(argv[4]);
+    
+    res_threshold=1.0e-13;
     int max_iters=10000; // max iterations of main code
-    res_threshold=1.0e-14;
     p.a[0]=1.0;
     // #################### 
     
@@ -185,6 +194,8 @@ int main ()
         resmag=f_get_residue(phi[0],r[0],r[1],0,p);
         if (resmag < res_threshold) { 
             printf("\nLoop breaks at iteration %d with residue %e < %e",iter,resmag,res_threshold); 
+            printf("L %d\tm %f\tnlevels %d\tnum_per_level %d\tAns %d\n",L,p.m,p.nlevels,num_iters,iter);
+            fprintf(pfile,"%d\t%f\t%d\t%d\t%d\n",L,p.m,p.nlevels,num_iters,iter);
             break;}
         else if (resmag > 1e6) {
             printf("\nDiverging. Residue %g at iteration %d",resmag,iter);
@@ -198,7 +209,7 @@ int main ()
 //     //         printf("%f\t",phi[i][j]);
     
     cout<<endl;
-    
+    fclose(pfile);
     for(int i=0;i<p.nlevels; i++){
         for(int j=0;j<L;j++){
            delete[] phi[i][j]; delete[] r[i][j]; 
