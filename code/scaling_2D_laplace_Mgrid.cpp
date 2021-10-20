@@ -147,15 +147,18 @@ int main (int argc, char *argv[])
     
     printf("\nV cycle with %d levels for lattice of size %d. Max levels %d\n",p.nlevels,L,max_levels);
     
+    
     for(int level=1;level<p.nlevels+1;level++){
         p.size[level]=p.size[level-1]/2;
         p.a[level]=2.0*p.a[level-1];
         p.scale[level]=1.0/(4+p.m*p.m*p.a[level]*p.a[level]);
     }
+    
+    
     // Declare 3D arrays as triple pointers
     double*** phi = new double**[p.nlevels+1];
     double*** r = new double**[p.nlevels+1];
-    for(int i=0; i< p.nlevels+1; i++){
+    for(int i=0; i<=p.nlevels+1; i++){
         phi[i]=new double*[L];
         r[i]=new double*[L];
         for(int j=0; j< L; j++){
@@ -171,11 +174,12 @@ int main (int argc, char *argv[])
     // Define sources
     r[0][0][0]=1.0;r[0][1][0]=2.0;r[0][2][2]=5.0;r[0][3][3]=7.5;
     // r[0][p.L/2][p.L/2]=1.0*p.scale[0];
-    // for(int j=0; j< L; j++) for(int k=0; k< L; k++) cout<<phi[0][j][k]<<"\t";
     
     resmag=f_get_residue(phi[0],r[0],r[1],0,p);
     cout<<"\nResidue "<<resmag<<endl;
-    // exit(1);
+     
+    // Flag for preventing Mgrid and running only relaxation
+    // int flag_mgrid=0;
     
     for(iter=0; iter < max_iters; iter++){
 
@@ -184,11 +188,13 @@ int main (int argc, char *argv[])
             relax(phi[lvl],r[lvl], lvl, num_iters,p); // Perform Gauss-Seidel
             // printf("%d,%d\n",lvl,max_levels);
             // printf("%f,%f,%f",r[lvl+1][0][0],r[lvl][0][0],phi[lvl][0][0]);
+            // if (flag_mgrid==1) f_projection(r[lvl+1],r[lvl],phi[lvl],lvl,p); //Project to coarse lattice
             f_projection(r[lvl+1],r[lvl],phi[lvl],lvl,p); //Project to coarse lattice
         }
         // come up
         for(lvl=p.nlevels-1;lvl>=0;lvl--){
             relax(phi[lvl],r[lvl], lvl, num_iters,p); // Perform Gauss-Seidel
+            // if((lvl>0)&&(flag_mgrid==1)) f_interpolate(phi[lvl-1],phi[lvl],lvl,p);
             if(lvl>0) f_interpolate(phi[lvl-1],phi[lvl],lvl,p);
         }
         resmag=f_get_residue(phi[0],r[0],r[1],0,p);
@@ -204,9 +210,9 @@ int main (int argc, char *argv[])
         if(iter%10==0) {
             printf("At iteration %d, the mag residue is %g \n",iter,resmag);   }
     }
-//     // for(int i=0; i<p.nlevels; i++)
-//     //     for (int j=0; j<p.size[i]; j++) 
-//     //         printf("%f\t",phi[i][j]);
+    // for(int i=0; i<p.nlevels; i++)
+    //     for (int j=0; j<p.size[i]; j++) 
+    //         printf("%f\t",phi[i][j]);
     
     cout<<endl;
     fclose(pfile);
