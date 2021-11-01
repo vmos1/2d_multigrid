@@ -10,6 +10,9 @@ Adding input and output for running scaling tests
 #include <sstream>
 #include <string>
 #include <complex>
+#include <chrono>
+#include <thread>
+#include <random>
 
 #define MAX_levels 20
 
@@ -151,13 +154,27 @@ int main (int argc, char *argv[])
         p.scale[level]=1.0/(4+p.m*p.m*p.a[level]*p.a[level]);
     }
     
+    // Intialize random state
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_real_distribution<double> dist(-M_PI, M_PI);
+    
     // Declare pointer arrays
     Complex *phi[20], *r[20];
-
+    
     for(int i=0; i<=p.nlevels+1; i++){
         phi[i]=new Complex [p.size[i]*p.size[i]];
         r[i]=new Complex [p.size[i]*p.size[i]];
         }
+
+    // Complex *U[20];// Gauge transformation at each point
+    // for(int i=0; i<=p.nlevels+1; i++){
+    //     U[i]=new Complex [p.size[i]*p.size[i]];
+    //     }
+    
+    // std::chrono::duration<int, std::milli> timespan(10000);
+    // std::this_thread::sleep_for(timespan);
+    // exit(1);
     
     for(int i=0; i< p.nlevels+1; i++){
         for(int j=0; j< p.size[i]*p.size[i]; j++){
@@ -165,16 +182,28 @@ int main (int argc, char *argv[])
     
     // for(int i=0; i< p.nlevels+1; i++){
     //     for(int j=0; j< p.size[i]*p.size[i]; j++){
-    //         printf("%f+i%f\t",real(phi[i][j]),imag(phi[i][j])); }}    
+    //         U[i][j]=std::polar(1.0,dist(gen)); }}
     
+    // for(int i=0; i< p.nlevels+1; i++){
+    //     for(int j=0; j< p.size[i]*p.size[i]; j++){
+    //         printf("%f+i%f\t",real(U[i][j]),imag(U[i][j])); }}    
+    
+    // Apply gauge transformation
+    // for(int i=0; i< p.nlevels+1; i++){
+    //     for(int j=0; j< p.size[i]*p.size[i]; j++){
+    //         phi[i][j]=phi[i][j]*U[i][j]; }}
+     
     // Define sources
-    r[0][0]=1.0;r[0][1+0*L]=2.0;r[0][2+2*L]=5.0;r[0][3+3*L]=7.5;
+    r[0][0]=1.0;r[0][1+0*L]=complex<double>(2.0,2.0);r[0][2+2*L]=5.0;r[0][3+3*L]=7.5;
     // r[0][p.L/2][p.L/2]=1.0*p.scale[0];
     
+    printf("%f+i%f",real(r[0][1]),imag(r[0][1]));
     Complex rtemp[p.size[0]*p.size[0]];
     resmag=f_get_residue_mag(phi[0],r[0],rtemp,0,p);
     cout<<"\nResidue "<<resmag<<endl;
      
+    // exit(1);
+    
     // Flag for preventing Mgrid and running only relaxation
     // int flag_mgrid=0;
     
@@ -207,7 +236,7 @@ int main (int argc, char *argv[])
     }
     for(int x=0; x<4; x++){
         for (int y=0; y<4; y++) {
-            printf("%g+i%g\t",real(phi[0][x+y*L]),imag(phi[0][x+y*L]));}
+            printf("%g+i(%g)\t",real(phi[0][x+y*L]),imag(phi[0][x+y*L]));}
             cout<<endl;}
     
     cout<<endl;
