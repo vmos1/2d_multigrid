@@ -75,8 +75,8 @@ void f_projection(double **res_c, double **res_f, double **phi, int level, param
     
     for(int i=0;i<L;i++) rtemp[i]= new double[L];
     
-    for(int x=0;x<Lc; x++) 
-        for(int y=0; y<Lc; y++) 
+    for(int x=0;x<L; x++) 
+        for(int y=0; y<L; y++) 
             rtemp[x][y]=0.0;
     
     // Find residue

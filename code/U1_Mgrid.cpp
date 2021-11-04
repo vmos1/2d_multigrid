@@ -28,31 +28,33 @@ typedef struct{
     double a[20]; // Lattice spacing 
 } params ;
 
-void f_residue(Complex *phi, Complex *b, Complex *r, int level, params p){
+void f_residue(Complex *U, Complex *phi, Complex *b, Complex *r, int level, params p){
     int L;
     L=p.size[level];
     for(int x=0; x<L; x++)
         for(int y=0; y<L; y++)
-            r[x+y*L]=b[x+y*L]-(1.0/pow(p.a[level],2))*(
-                                                phi[(x+1)%L+y*L] +phi[(x-1+L)%L+y*L] 
-                                                +phi[x+((y+1)%L)*L] +phi[x+((y-1+L)%L)*L] 
+            r[x+y*L]=b[x+y*L]-(1.0/pow(p.a[level],2))*
+                                                (U[x+y*L+0*L*L]*phi[(x+1)%L+y*L]
+                                                +conj(U[x+y*L+0*L*L])*phi[(x-1+L)%L+y*L] 
+                                                +U[x+y*L+1*L*L]*phi[x+((y+1)%L)*L] 
+                                                +conj(U[x+y*L+1*L*L])*phi[x+((y-1+L)%L)*L] 
                                                 -phi[x+y*L]/p.scale[level]); 
 }
 
-double f_get_residue_mag(Complex *phi, Complex *b, Complex *r, int level, params p){
+double f_get_residue_mag(Complex *U, Complex *phi, Complex *b, Complex *r, int level, params p){
     int L;
-    Complex res;
+    double res;
     L=p.size[level];
     res=0.0;
-    f_residue(phi,b,r,level,p);
+    f_residue(U,phi,b,r,level,p);
     for(int x=0; x<L; x++)
         for(int y=0;y<L; y++) 
-            res=res+abs(r[x+y*L]); // sum of absolute values.
+            res=res+std::abs(r[x+y*L]); // sum of modulus of complex numbers.
         
-    return abs(res);
+    return fabs(res);
 }
 
-void relax(Complex *phi, Complex *res, int lev, int num_iter, params p){
+void relax(Complex *U, Complex *phi, Complex *res, int lev, int num_iter, params p){
 // Takes in a res. To solve: A phi = res    
     int i,x,y;
     int L;
@@ -63,26 +65,27 @@ void relax(Complex *phi, Complex *res, int lev, int num_iter, params p){
     for(i=0; i<num_iter; i++){
         for (x=0; x<L; x++){
             for(y=0; y<L; y++){
-                phi[x+y*L]= p.scale[lev]*(phi[(x+1)%L+y*L] +phi[(x-1+L)%L+y*L] 
-                                        +phi[x+((y+1)%L)*L] +phi[x+((y-1+L)%L)*L] 
-                                         -res[x+y*L]*a*a); }}}
+                phi[x+y*L]= p.scale[lev]*
+                                        (U[x+y*L+0*L*L]*phi[(x+1)%L+y*L] 
+                                        +conj(U[x+y*L+0*L*L])*phi[(x-1+L)%L+y*L] 
+                                        +U[x+y*L+1*L*L]*phi[x+((y+1)%L)*L] 
+                                        +conj(U[x+y*L+1*L*L])*phi[x+((y-1+L)%L)*L] 
+                                        -res[x+y*L]*a*a); }}}
 }
                                             
-void f_projection(Complex *res_c, Complex *res_f, Complex *phi, int level, params p){
+void f_projection(Complex *res_c, Complex *res_f, Complex *phi, Complex *U, int level, params p){
     int L,Lc;
     
     L=p.size[level];
     Lc=p.size[level+1];
     Complex rtemp[L*L];
     
-    // for(int i=0;i<L;i++) rtemp[i]= new Complex[L];
-    
-    for(int x=0;x<Lc; x++) 
-        for(int y=0; y<Lc; y++) 
+    for(int x=0;x<L; x++) 
+        for(int y=0; y<L; y++) 
             rtemp[x+y*L]=0.0;
     
     // Find residue
-    f_residue(phi,res_f,rtemp,level,p);
+    f_residue(U,phi,res_f,rtemp,level,p);
     // Project residue
     for(int x=0;x<Lc; x++) 
         for(int y=0; y<Lc; y++) 
@@ -167,31 +170,29 @@ int main (int argc, char *argv[])
         r[i]=new Complex [p.size[i]*p.size[i]];
         }
 
-    // Complex *U[20];// Gauge transformation at each point
-    // for(int i=0; i<=p.nlevels+1; i++){
-    //     U[i]=new Complex [p.size[i]*p.size[i]];
-    //     }
-    
-    // std::chrono::duration<int, std::milli> timespan(10000);
-    // std::this_thread::sleep_for(timespan);
-    // exit(1);
+    Complex *U[20]; // Link fields at each point with two directions
+    for(int i=0; i<=p.nlevels+1; i++){
+        U[i]=new Complex [p.size[i]*p.size[i]*2];
+        }
     
     for(int i=0; i< p.nlevels+1; i++){
         for(int j=0; j< p.size[i]*p.size[i]; j++){
             phi[i][j]=0.0; r[i][j]=0.0; }}
     
-    // for(int i=0; i< p.nlevels+1; i++){
-    //     for(int j=0; j< p.size[i]*p.size[i]; j++){
-    //         U[i][j]=std::polar(1.0,dist(gen)); }}
+    // Initialize link variables
+    for(int i=0; i< p.nlevels+1; i++){
+        for(int j=0; j< p.size[i]*p.size[i]; j++){
+            U[i][j]=std::polar(1.0,dist(gen)); }} //random
+            // U[i][j]=1.0; }}
     
     // for(int i=0; i< p.nlevels+1; i++){
     //     for(int j=0; j< p.size[i]*p.size[i]; j++){
     //         printf("%f+i%f\t",real(U[i][j]),imag(U[i][j])); }}    
     
     // Apply gauge transformation
-    // for(int i=0; i< p.nlevels+1; i++){
-    //     for(int j=0; j< p.size[i]*p.size[i]; j++){
-    //         phi[i][j]=phi[i][j]*U[i][j]; }}
+    for(int i=0; i< p.nlevels+1; i++){
+        for(int j=0; j< p.size[i]*p.size[i]; j++){
+            phi[i][j]=phi[i][j]*U[i][j]; }}
      
     // Define sources
     r[0][0]=1.0;r[0][1+0*L]=complex<double>(2.0,2.0);r[0][2+2*L]=5.0;r[0][3+3*L]=7.5;
@@ -199,7 +200,7 @@ int main (int argc, char *argv[])
     
     printf("%f+i%f",real(r[0][1]),imag(r[0][1]));
     Complex rtemp[p.size[0]*p.size[0]];
-    resmag=f_get_residue_mag(phi[0],r[0],rtemp,0,p);
+    resmag=f_get_residue_mag(U[0], phi[0],r[0],rtemp,0,p);
     cout<<"\nResidue "<<resmag<<endl;
      
     // exit(1);
@@ -211,17 +212,17 @@ int main (int argc, char *argv[])
 
         // Go down
         for(lvl=0;lvl<p.nlevels;lvl++){
-            relax(phi[lvl],r[lvl], lvl, num_iters,p); // Perform Gauss-Seidel
+            relax(U[lvl],phi[lvl],r[lvl], lvl, num_iters,p); // Perform Gauss-Seidel
             // if (flag_mgrid==1) f_projection(r[lvl+1],r[lvl],phi[lvl],lvl,p); //Project to coarse lattice
-            f_projection(r[lvl+1],r[lvl],phi[lvl],lvl,p); //Project to coarse lattice
+            f_projection(r[lvl+1],r[lvl],phi[lvl],U[lvl],lvl,p); //Project to coarse lattice
         }
         // come up
         for(lvl=p.nlevels-1;lvl>=0;lvl--){
-            relax(phi[lvl],r[lvl], lvl, num_iters,p); // Perform Gauss-Seidel
+            relax(U[lvl],phi[lvl],r[lvl], lvl, num_iters,p); // Perform Gauss-Seidel
             // if((lvl>0)&&(flag_mgrid==1)) f_interpolate(phi[lvl-1],phi[lvl],lvl,p);
             if(lvl>0) f_interpolate(phi[lvl-1],phi[lvl],lvl,p);
         }
-        resmag=f_get_residue_mag(phi[0],r[0],rtemp,0,p);
+        resmag=f_get_residue_mag(U[0],phi[0],r[0],rtemp,0,p);
         if (resmag < res_threshold) { 
             printf("\nLoop breaks at iteration %d with residue %e < %e",iter,resmag,res_threshold); 
             printf("\nL %d\tm %f\tnlevels %d\tnum_per_level %d\tAns %d\n",L,p.m,p.nlevels,num_iters,iter);
@@ -242,10 +243,15 @@ int main (int argc, char *argv[])
     cout<<endl;
     fclose(pfile);
     
+    
     for(int i=0; i<=p.nlevels+1; i++){
         delete[] phi[i]; delete[] r[i];
     } 
     // delete[] phi; delete[] r;
             
     return 0;
+    
 }
+
+
+
