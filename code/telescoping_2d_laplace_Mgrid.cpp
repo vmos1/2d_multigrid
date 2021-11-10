@@ -70,7 +70,7 @@ void f_projection(double *res_c, double *res_f, double *phi, int level, params p
     
     L=p.size[level];
     Lc=p.size[level+1];
-    double rtemp[L*L];
+    double* rtemp = new double [L*L];
     
     for(int x=0;x<L; x++) 
         for(int y=0; y<L; y++) 
@@ -90,6 +90,7 @@ void f_projection(double *res_c, double *res_f, double *phi, int level, params p
                                          +rtemp[(2*x-1+L)%L+(2*y)*L] +rtemp[2*x+((2*y-1+L)%L)*L] 
                                          +rtemp[(2*x+1+L)%L+((2*y+1)%L)*L] +rtemp[(2*x-1+L)%L+((2*y-1+L)%L)*L]
                                          +rtemp[(2*x-1+L)%L+((2*y+1)%L)*L] +rtemp[(2*x+1)%L+((2*y-1+L)%L)*L]  );
+    delete[] rtemp;
 }
 
 void f_interpolate(double *phi_f,double *phi_c,int lev,params p, int t_flag)
@@ -170,7 +171,7 @@ int main (int argc, char *argv[])
     
     // Declare pointer arrays
     double *phi[20], *r[20];
-
+    
     for(int i=0; i<=p.nlevels+1; i++){
         phi[i]=new double [p.size[i]*p.size[i]];
         r[i]=new double [p.size[i]*p.size[i]];
@@ -183,11 +184,14 @@ int main (int argc, char *argv[])
     // Define sources
     r[0][0]=1.0;r[0][1+0*L]=2.0;r[0][2+2*L]=5.0;r[0][3+3*L]=7.5;
     // r[0][p.L/2][p.L/2]=1.0*p.scale[0];
+   
+    printf("size %d",p.size[0]*p.size[0]);
+
+    // double res_temp[p.size[0]*p.size[0]];
+    double* res_temp=new double[p.size[0]*p.size[0]];
     
-    double rtemp[p.size[0]*p.size[0]];
-    resmag=f_get_residue_mag(phi[0],r[0],rtemp,0,p);
+    resmag=f_get_residue_mag(phi[0],r[0],res_temp,0,p);
     cout<<"\nResidue "<<resmag<<endl;
-    // exit(1);
      
     // Flag for preventing Mgrid and running only relaxation
     // int flag_mgrid=0;
@@ -206,7 +210,7 @@ int main (int argc, char *argv[])
             // if((lvl>0)&&(flag_mgrid==1)) f_interpolate(phi[lvl-1],phi[lvl],lvl,p);
             if(lvl>0) f_interpolate(phi[lvl-1],phi[lvl],lvl,p,0);
         }
-        resmag=f_get_residue_mag(phi[0],r[0],rtemp,0,p);
+        resmag=f_get_residue_mag(phi[0],r[0],res_temp,0,p);
         if (resmag < res_threshold) { 
             printf("\nLoop breaks at iteration %d with residue %e < %e",iter,resmag,res_threshold); 
             printf("\nL %d\tm %f\tnlevels %d\tnum_per_level %d\tAns %d\n",L,p.m,p.nlevels,num_iters,iter);
@@ -230,6 +234,7 @@ int main (int argc, char *argv[])
     for(int i=0; i<=p.nlevels+1; i++){
         delete[] phi[i]; delete[] r[i];
     } 
+    delete[] res_temp;
     // delete[] phi; delete[] r;
             
     return 0;

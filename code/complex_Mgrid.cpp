@@ -73,8 +73,9 @@ void f_projection(Complex *res_c, Complex *res_f, Complex *phi, int level, param
     
     L=p.size[level];
     Lc=p.size[level+1];
-    Complex rtemp[L*L];
-    
+    // Complex rtemp[L*L];
+    Complex* rtemp = new Complex [L*L];
+
     // for(int i=0;i<L;i++) rtemp[i]= new Complex[L];
     
     for(int x=0;x<Lc; x++) 
@@ -87,6 +88,7 @@ void f_projection(Complex *res_c, Complex *res_f, Complex *phi, int level, param
     for(int x=0;x<Lc; x++) 
         for(int y=0; y<Lc; y++) 
             res_c[x+y*Lc]=0.25*(rtemp[2*x+(2*y)*L] +rtemp[(2*x+1)%L+(2*y)*L] +rtemp[2*x+((2*y+1)%L)*L] + rtemp[(2*x+1)%L+((2*y+1)%L)*L] ); 
+    delete[] rtemp;
 }
 
 void f_interpolate(Complex *phi_f,Complex *phi_c,int lev,params p)
@@ -198,12 +200,11 @@ int main (int argc, char *argv[])
     // r[0][p.L/2][p.L/2]=1.0*p.scale[0];
     
     printf("%f+i%f",real(r[0][1]),imag(r[0][1]));
-    Complex rtemp[p.size[0]*p.size[0]];
-    resmag=f_get_residue_mag(phi[0],r[0],rtemp,0,p);
+    Complex* res_temp=new Complex[p.size[0]*p.size[0]];
+
+    resmag=f_get_residue_mag(phi[0],r[0],res_temp,0,p);
     cout<<"\nResidue "<<resmag<<endl;
      
-    // exit(1);
-    
     // Flag for preventing Mgrid and running only relaxation
     // int flag_mgrid=0;
     
@@ -221,7 +222,7 @@ int main (int argc, char *argv[])
             // if((lvl>0)&&(flag_mgrid==1)) f_interpolate(phi[lvl-1],phi[lvl],lvl,p);
             if(lvl>0) f_interpolate(phi[lvl-1],phi[lvl],lvl,p);
         }
-        resmag=f_get_residue_mag(phi[0],r[0],rtemp,0,p);
+        resmag=f_get_residue_mag(phi[0],r[0],res_temp,0,p);
         if (resmag < res_threshold) { 
             printf("\nLoop breaks at iteration %d with residue %e < %e",iter,resmag,res_threshold); 
             printf("\nL %d\tm %f\tnlevels %d\tnum_per_level %d\tAns %d\n",L,p.m,p.nlevels,num_iters,iter);
@@ -245,6 +246,7 @@ int main (int argc, char *argv[])
     for(int i=0; i<=p.nlevels+1; i++){
         delete[] phi[i]; delete[] r[i];
     } 
+    delete[] res_temp;
     // delete[] phi; delete[] r;
             
     return 0;

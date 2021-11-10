@@ -69,10 +69,8 @@ void f_projection(double *res_c, double *res_f, double *phi, int level, params p
     
     L=p.size[level];
     Lc=p.size[level+1];
-    double rtemp[L*L];
-    
-    // for(int i=0;i<L;i++) rtemp[i]= new double[L];
-    
+    double* rtemp = new double [L*L];
+
     for(int x=0;x<L; x++) 
         for(int y=0; y<L; y++) 
             rtemp[x+y*L]=0.0;
@@ -82,6 +80,7 @@ void f_projection(double *res_c, double *res_f, double *phi, int level, params p
     for(int x=0;x<Lc; x++) 
         for(int y=0; y<Lc; y++) 
             res_c[x+y*Lc]=0.25*(rtemp[2*x+(2*y)*L] +rtemp[(2*x+1)%L+(2*y)*L] +rtemp[2*x+((2*y+1)%L)*L] + rtemp[(2*x+1)%L+((2*y+1)%L)*L] ); 
+    delete[] rtemp;
     
 }
 
@@ -166,8 +165,9 @@ int main (int argc, char *argv[])
     r[0][0]=1.0;r[0][1+0*L]=2.0;r[0][2+2*L]=5.0;r[0][3+3*L]=7.5;
     // r[0][p.L/2][p.L/2]=1.0*p.scale[0];
     
-    double rtemp[p.size[0]*p.size[0]];
-    resmag=f_get_residue_mag(phi[0],r[0],rtemp,0,p);
+    double* res_temp=new double[p.size[0]*p.size[0]];
+
+    resmag=f_get_residue_mag(phi[0],r[0],res_temp,0,p);
     cout<<"\nResidue "<<resmag<<endl;
     // exit(1);
      
@@ -188,7 +188,7 @@ int main (int argc, char *argv[])
             // if((lvl>0)&&(flag_mgrid==1)) f_interpolate(phi[lvl-1],phi[lvl],lvl,p);
             if(lvl>0) f_interpolate(phi[lvl-1],phi[lvl],lvl,p);
         }
-        resmag=f_get_residue_mag(phi[0],r[0],rtemp,0,p);
+        resmag=f_get_residue_mag(phi[0],r[0],res_temp,0,p);
         if (resmag < res_threshold) { 
             printf("\nLoop breaks at iteration %d with residue %e < %e",iter,resmag,res_threshold); 
             printf("\nL %d\tm %f\tnlevels %d\tnum_per_level %d\tAns %d\n",L,p.m,p.nlevels,num_iters,iter);
@@ -212,6 +212,7 @@ int main (int argc, char *argv[])
     for(int i=0; i<=p.nlevels+1; i++){
         delete[] phi[i]; delete[] r[i];
     } 
+    delete[] res_temp;
     // delete[] phi; delete[] r;
             
     return 0;
