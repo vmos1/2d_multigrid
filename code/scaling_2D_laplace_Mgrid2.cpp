@@ -76,7 +76,6 @@ void f_projection(double *res_c, double *res_f, double *phi, int level, params p
     for(int x=0;x<L; x++) 
         for(int y=0; y<L; y++) 
             rtemp[x+y*L]=0.0;
-    
     // Find residue
     f_residue(phi,res_f,rtemp,level,p);
     // Project residue
@@ -88,10 +87,10 @@ void f_projection(double *res_c, double *res_f, double *phi, int level, params p
 
 void f_interpolate(double *phi_f,double *phi_c,int lev,params p)
 {  
-  int L, Lc, x,y;
-  Lc = p.size[lev];  // coarse  level
-  L = p.size[lev-1]; 
-  
+    int L, Lc, x,y;
+    Lc = p.size[lev];  // coarse  level
+    L = p.size[lev-1]; 
+    
     for(x = 0; x< Lc; x++)
         for(y=0;y<Lc;y++){
             phi_f[2*x+(2*y)*L]                += phi_c[x+y*Lc];
@@ -99,8 +98,8 @@ void f_interpolate(double *phi_f,double *phi_c,int lev,params p)
             phi_f[(2*x+1)%L+(2*y)*L]          += phi_c[x+y*Lc];
             phi_f[(2*x+1)%L+((2*y+1)%L)*L]    += phi_c[x+y*Lc]; }
     
-  //set to zero so phi = error 
-  for(x = 0; x< Lc; x++) for(y=0; y<Lc; y++) phi_c[x+y*L] = 0.0;
+    //set to zero so phi = error 
+    for(x = 0; x< Lc; x++) for(y=0; y<Lc; y++) phi_c[x+y*Lc] = 0.0;
   
 }
 

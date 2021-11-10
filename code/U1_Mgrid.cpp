@@ -106,7 +106,7 @@ void f_interpolate(Complex *phi_f,Complex *phi_c,int lev,params p)
             phi_f[(2*x+1)%L+((2*y+1)%L)*L]    += phi_c[x+y*Lc]; }
     
   //set to zero so phi = error 
-  for(x = 0; x< Lc; x++) for(y=0; y<Lc; y++) phi_c[x+y*L] = 0.0;
+  for(x = 0; x< Lc; x++) for(y=0; y<Lc; y++) phi_c[x+y*Lc] = 0.0;
   
 }
 
