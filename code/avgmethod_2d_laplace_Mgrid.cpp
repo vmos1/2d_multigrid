@@ -1,5 +1,6 @@
-/* Venkitesh Ayyar, Nov12, 2021
-Implementing non-telescoping method for 2D laplace Multigrid
+/* Venkitesh Ayyar, Oct14, 2021
+Implementing 2D laplace Multigrid
+Adding input and output for running scaling tests
 */
 
 #include <iostream>
@@ -20,26 +21,30 @@ typedef struct{
     double a[20]; // Lattice spacing 
 } params ;
 
-double f_get_residue_mag(double *phi, double *b, int level, params p){
+// double f_residue(double *phi, double *b, double *r, int, params);
+
+void f_residue(double *phi, double *b, double *r, int level, params p){
     int L;
     L=p.size[level];
-    double* rtemp = new double [L*L]; 
-    double res=0.0;
-    
-    // Get residue
     for(int x=0; x<L; x++)
         for(int y=0; y<L; y++)
-            rtemp[x+y*L]=b[x+y*L]-(1.0/pow(p.a[level],2))*(
+            r[x+y*L]=b[x+y*L]-(1.0/pow(p.a[level],2))*(
                                                 phi[(x+1)%L+y*L] +phi[(x-1+L)%L+y*L] 
                                                 +phi[x+((y+1)%L)*L] +phi[x+((y-1+L)%L)*L] 
                                                 -phi[x+y*L]/p.scale[level]); 
-    // Compute residue sum 
+}
+
+double f_get_residue_mag(double *phi, double *b, double *r, int level, params p){
+    int L;
+    double res;
+    L=p.size[level];
+    res=0.0;
+    
+    f_residue(phi,b,r,level,p);
     for(int x=0; x<L; x++) {
         for(int y=0;y<L; y++) {
-            res=res+abs(rtemp[x+y*L]); // sum of absolute values.
+            res=res+abs(r[x+y*L]); // sum of absolute values.
         }}
-    
-    delete[] rtemp;
     return res;
 }
 
@@ -59,10 +64,9 @@ void relax(double *phi, double *res, int lev, int num_iter, params p){
                                          -res[x+y*L]*a*a); }}}
 }
                                             
-void f_projection(double *res_c, double *res_f, double *phi, int level, params p, int quad){
+void f_projection(double *res_c, double *res_f, double *phi, int level, params p, int t_flag){
     // Multigrid module that projects downward to coarser lattices
     int L,Lc;
-    int xa,xb,ya,yb;
     
     L=p.size[level];
     Lc=p.size[level+1];
@@ -73,60 +77,46 @@ void f_projection(double *res_c, double *res_f, double *phi, int level, params p
             rtemp[x+y*L]=0.0;
     
     // Find residue
-    for(int x=0; x<L; x++) for(int y=0; y<L; y++)
-        rtemp[x+y*L]=res_f[x+y*L]-(1.0/pow(p.a[level],2))*(
-                                            phi[(x+1)%L+y*L] +phi[(x-1+L)%L+y*L] 
-                                            +phi[x+((y+1)%L)*L] +phi[x+((y-1+L)%L)*L] 
-                                            -phi[x+y*L]/p.scale[level]); 
-    
+    f_residue(phi,res_f,rtemp,level,p);
     // Project residue
-//    printf("Project quad %d level %d\n",quad,level);
     for(int x=0;x<Lc; x++) 
-        for(int y=0; y<Lc; y++) {
-            
-            xa=2*x;ya=2*y;
-            // Determine which quadrant to use 
-            if(quad==1)      {xb=(2*x+1+L)%L;yb=(2*y+1+L)%L;}
-            else if(quad==2) {xb=(2*x-1+L)%L;yb=(2*y+1+L)%L;}
-            else if(quad==3) {xb=(2*x-1+L)%L;yb=(2*y-1+L)%L;}
-            else if(quad==4) {xb=(2*x+1+L)%L;yb=(2*y-1+L)%L;}
-  
-            // res_c[x+y*Lc]=0.25*(rtemp[2*x+(2*y)*L] +rtemp[(2*x+1)%L+(2*y)*L] +rtemp[2*x+((2*y+1)%L)*L] + rtemp[(2*x+1)%L+((2*y+1)%L)*L]);
-            res_c[x+y*Lc]=0.25*(rtemp[xa+ya*L]+ rtemp[xa+yb*L]+rtemp[xb+ya*L]+rtemp[xb+yb*L]); 
-        }
+        for(int y=0; y<Lc; y++) 
+            if(t_flag==0)
+            res_c[x+y*Lc]=0.25*(rtemp[2*x+(2*y)*L] +rtemp[(2*x+1)%L+(2*y)*L] +rtemp[2*x+((2*y+1)%L)*L] + rtemp[(2*x+1)%L+((2*y+1)%L)*L] );
+            else if(t_flag==1)
+            res_c[x+y*Lc]=(double)(1.0/9.0)*(rtemp[2*x+(2*y)*L] 
+                                         +rtemp[(2*x+1)%L+(2*y)*L] +rtemp[2*x+((2*y+1)%L)*L] 
+                                         // +rtemp[(2*x+1)%L+((2*y+1)%L)*L] );
+                                         +rtemp[(2*x-1+L)%L+(2*y)*L] +rtemp[2*x+((2*y-1+L)%L)*L] 
+                                         +rtemp[(2*x+1+L)%L+((2*y+1)%L)*L] +rtemp[(2*x-1+L)%L+((2*y-1+L)%L)*L]
+                                         +rtemp[(2*x-1+L)%L+((2*y+1)%L)*L] +rtemp[(2*x+1)%L+((2*y-1+L)%L)*L]  );
     delete[] rtemp;
 }
 
-void f_interpolate(double *phi_f,double *phi_c,int lev,params p, int quad)
+void f_interpolate(double *phi_f,double *phi_c,int lev,params p, int t_flag)
 {  
     // Multigrid module that projects upward to finer lattices
-    int L, Lc, x,y;
-    int xa,xb,ya,yb;
-    Lc = p.size[lev];  // coarse  level
-    L = p.size[lev-1]; 
+  int L, Lc, x,y;
+  Lc = p.size[lev];  // coarse  level
+  L = p.size[lev-1]; 
   
     for(x = 0; x< Lc; x++)
-        for(y=0;y<Lc;y++){
-                // phi_f[2*x+(2*y)*L]                += phi_c[x+y*Lc];
-                // phi_f[2*x+((2*y+1)%L)*L]          += phi_c[x+y*Lc];
-                // phi_f[(2*x+1)%L+(2*y)*L]          += phi_c[x+y*Lc];
-                // phi_f[(2*x+1)%L+((2*y+1)%L)*L]    += phi_c[x+y*Lc]; 
-            
-            xa=2*x;ya=2*y;
-            // Determine which quadrant to use 
-            if(quad==1)      {xb=(2*x+1+L)%L;yb=(2*y+1+L)%L;}
-            else if(quad==2) {xb=(2*x-1+L)%L;yb=(2*y+1+L)%L;}
-            else if(quad==3) {xb=(2*x-1+L)%L;yb=(2*y-1+L)%L;}
-            else if(quad==4) {xb=(2*x+1+L)%L;yb=(2*y-1+L)%L;}
-            
-            phi_f[xa+ya*L]    += phi_c[x+y*Lc];
-            phi_f[xa+yb*L]    += phi_c[x+y*Lc];
-            phi_f[xb+ya*L]    += phi_c[x+y*Lc];
-            phi_f[xb+yb*L]    += phi_c[x+y*Lc]; 
+        for(y=0;y<Lc;y++)
+            if (t_flag==0){
+                phi_f[2*x+(2*y)*L]                += phi_c[x+y*Lc];
+                phi_f[2*x+((2*y+1)%L)*L]          += phi_c[x+y*Lc];
+                phi_f[(2*x+1)%L+(2*y)*L]          += phi_c[x+y*Lc];
+                phi_f[(2*x+1)%L+((2*y+1)%L)*L]    += phi_c[x+y*Lc]; 
+            }
+            else if (t_flag==1){
+                phi_f[2*x+(2*y)*L]                += phi_c[x+y*Lc];
+                phi_f[2*x+((2*y+1)%L)*L]          += 0.5*(phi_c[x+y*Lc]+phi_c[x+(y+1)*Lc]);
+                phi_f[(2*x+1)%L+(2*y)*L]          += 0.5*(phi_c[x+y*Lc]+phi_c[(x+1)+y*Lc]);
+                phi_f[(2*x+1)%L+((2*y+1)%L)*L]    += phi_c[x+y*Lc]; 
+            } 
+//                 
+                
     
-           } 
-    
-//    printf("Interpolate quad %d; level %d\n",quad,lev);
   //set to zero so phi = error 
   for(x = 0; x< Lc; x++) for(y=0; y<Lc; y++) phi_c[x+y*Lc] = 0.0;
   
@@ -181,77 +171,52 @@ int main (int argc, char *argv[])
     
     // Declare pointer arrays
     double *phi[20], *r[20];
+    
     for(int i=0; i<=p.nlevels+1; i++){
         phi[i]=new double [p.size[i]*p.size[i]];
         r[i]=new double [p.size[i]*p.size[i]];
         }
+    
     for(int i=0; i< p.nlevels+1; i++){
         for(int j=0; j< p.size[i]*p.size[i]; j++){
-            phi[i][j]=0.0; r[i][j]=0.0; }}
+                phi[i][j]=0.0; r[i][j]=0.0; }}
     
-    // Arrays for telescoping procedure. 4 arrays for last layer
-    double *r_tel[4], *phi_tel[4];
-    int j_size=p.size[p.nlevels];
-    
-    for(int level=0;level<p.nlevels+1;level++){
-        printf("\n%d\t%d\t%d",level,p.size[level],j_size);}
-    
-    for(int i=0; i<4; i++){
-        phi_tel[i]=new double [j_size*j_size];
-        r_tel[i]=new double [j_size*j_size];
-        }
-    for(int i=0; i<4; i++){
-        for(int j=0; j< j_size*j_size; j++){
-            phi_tel[i][j]=0.0; r_tel[i][j]=0.0; }}
- 
     // Define sources
     r[0][0]=1.0;r[0][1+0*L]=2.0;r[0][2+2*L]=5.0;r[0][3+3*L]=7.5;
     // r[0][p.L/2][p.L/2]=1.0*p.scale[0];
    
-    resmag=f_get_residue_mag(phi[0],r[0],0,p);
+    printf("size %d",p.size[0]*p.size[0]);
+
+    // double res_temp[p.size[0]*p.size[0]];
+    double* res_temp=new double[p.size[0]*p.size[0]];
+    
+    resmag=f_get_residue_mag(phi[0],r[0],res_temp,0,p);
     cout<<"\nResidue "<<resmag<<endl;
+     
     // Flag for preventing Mgrid and running only relaxation
     // int flag_mgrid=0;
     
     // Flag for telescoping tests
     int t_flag;
     t_flag=0;
-    t_flag=1;
+    // t_flag=1;
     printf("\nTelescoping flag is %d\n",t_flag);
-    // exit(1);
+    
     for(iter=0; iter < max_iters; iter++){
-        
-        // Go down: fine -> coarse
-//        printf("going down\n");
+
+        // Go down
         for(lvl=0;lvl<p.nlevels;lvl++){
             relax(phi[lvl],r[lvl], lvl, num_iters,p); // Perform Gauss-Seidel
-            //Project to coarse lattice 
-//            printf("lvl %d\n",lvl);
-            if((lvl==p.nlevels-1)&&(t_flag==1)){
-                for(int i=0;i<4;i++){// Project 4 independent ways
-                    f_projection(r_tel[i],r[lvl],phi[lvl],lvl,p,i+1); }}
-    
-            else f_projection(r[lvl+1],r[lvl],phi[lvl],lvl,p,1); 
+            // if (flag_mgrid==1) f_projection(r[lvl+1],r[lvl],phi[lvl],lvl,p); //Project to coarse lattice
+            f_projection(r[lvl+1],r[lvl],phi[lvl],lvl,p,t_flag); //Project to coarse lattice
         }
-        
-        // come up: coarse -> fine
-        for(lvl=p.nlevels;lvl>=0;lvl--){
-//            printf("lvl %d\n",lvl);
-            // Telescoping method
-            if((lvl==p.nlevels)&&(t_flag==1)){
-                for(int i=0;i<4;i++){// Project 4 independent ways
-                    relax(phi_tel[lvl],r_tel[i], lvl, num_iters,p);} // Perform Gauss-Seidel
-            // Average out 4 components
-            for (int j=0; j<j_size*j_size; j++) phi[lvl][j]=0.25*(phi_tel[0][j]+phi_tel[1][j]+phi_tel[2][j]+phi_tel[3][j]);}
-            
-            else {relax(phi[lvl],r[lvl], lvl, num_iters,p);} // Perform Gauss-Seidel
-            
-//            printf("lvl %d\n",lvl);
-            if(lvl>0) f_interpolate(phi[lvl-1],phi[lvl],lvl,p,1);
-            }
-         
-        resmag=f_get_residue_mag(phi[0],r[0],0,p);
-        
+        // come up
+        for(lvl=p.nlevels-1;lvl>=0;lvl--){
+            relax(phi[lvl],r[lvl], lvl, num_iters,p); // Perform Gauss-Seidel
+            // if((lvl>0)&&(flag_mgrid==1)) f_interpolate(phi[lvl-1],phi[lvl],lvl,p);
+            if(lvl>0) f_interpolate(phi[lvl-1],phi[lvl],lvl,p,t_flag);
+        }
+        resmag=f_get_residue_mag(phi[0],r[0],res_temp,0,p);
         if (resmag < res_threshold) { 
             printf("\nLoop breaks at iteration %d with residue %e < %e",iter,resmag,res_threshold); 
             printf("\nL %d\tm %f\tnlevels %d\tnum_per_level %d\tAns %d\n",L,p.m,p.nlevels,num_iters,iter);
@@ -260,7 +225,7 @@ int main (int argc, char *argv[])
         else if (resmag > 1e6) {
             printf("\nDiverging. Residue %g at iteration %d",resmag,iter);
             break;}    
-         
+        
         if(iter%10==0) {
             printf("At iteration %d, the mag residue is %g \n",iter,resmag);   }
     }
@@ -275,6 +240,7 @@ int main (int argc, char *argv[])
     for(int i=0; i<=p.nlevels+1; i++){
         delete[] phi[i]; delete[] r[i];
     } 
+    delete[] res_temp;
     // delete[] phi; delete[] r;
             
     return 0;
