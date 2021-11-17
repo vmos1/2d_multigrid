@@ -132,11 +132,27 @@ void f_interpolate(double *phi_f,double *phi_c,int lev,params p, int quad)
   
 }
 
+void f_write_op(double *phi, double *r, int iter, FILE* pfile2, FILE* pfile3, params p){
+    int L; 
+    L=p.size[0];
+    fprintf(pfile2,"%d,",iter);
+    fprintf(pfile3,"%d,",iter);
+
+    for(int x=0; x<L; x++){ 
+        for(int y=0; y<L; y++){ 
+            fprintf(pfile2,"%f,",r[x+L*y]);
+            fprintf(pfile3,"%f,",phi[x+L*y]);}}
+    fprintf(pfile2,"\n"); 
+    fprintf(pfile3,"\n");
+}
+
 int main (int argc, char *argv[])
     { 
     params p;
     
-    FILE * pfile = fopen ("results_gen_scaling.txt","a"); 
+    FILE * pfile1 = fopen ("results_gen_scaling.txt","a"); 
+    FILE * pfile2 = fopen ("results_residue.txt","w"); 
+    FILE * pfile3 = fopen ("results_phi.txt","w"); 
     
     double resmag,res_threshold;
     int L, max_levels;
@@ -214,19 +230,24 @@ int main (int argc, char *argv[])
     // int flag_mgrid=0;
     
     // Flag for telescoping tests
-    int t_flag;
+    int t_flag,verbose;
     t_flag=0;
-    t_flag=1;
+//    t_flag=1;
+    verbose=0;
     printf("\nTelescoping flag is %d\n",t_flag);
     // exit(1);
     for(iter=0; iter < max_iters; iter++){
+
+        if(iter%10==0) {
+            printf("At iteration %d, the mag residue is %g \n",iter,resmag);   
+            f_write_op(phi[0],r[0], iter, pfile2, pfile3, p); } 
         
         // Go down: fine -> coarse
-//        printf("going down\n");
+        if(verbose==1) printf("going down\n");
         for(lvl=0;lvl<p.nlevels;lvl++){
             relax(phi[lvl],r[lvl], lvl, num_iters,p); // Perform Gauss-Seidel
             //Project to coarse lattice 
-//            printf("lvl %d\n",lvl);
+            if (verbose==1) printf("lvl %d\n",lvl);
             if((lvl==p.nlevels-1)&&(t_flag==1)){
                 for(int i=0;i<4;i++){// Project 4 independent ways
                     f_projection(r_tel[i],r[lvl],phi[lvl],lvl,p,i+1); }}
@@ -235,8 +256,9 @@ int main (int argc, char *argv[])
         }
         
         // come up: coarse -> fine
+        if(verbose==1) printf("going up\n");
         for(lvl=p.nlevels;lvl>=0;lvl--){
-//            printf("lvl %d\n",lvl);
+            if(verbose==1) printf("lvl %d\n",lvl);
             // Telescoping method
             if((lvl==p.nlevels)&&(t_flag==1)){
                 for(int i=0;i<4;i++){// Project 4 independent ways
@@ -246,7 +268,6 @@ int main (int argc, char *argv[])
             
             else {relax(phi[lvl],r[lvl], lvl, num_iters,p);} // Perform Gauss-Seidel
             
-//            printf("lvl %d\n",lvl);
             if(lvl>0) f_interpolate(phi[lvl-1],phi[lvl],lvl,p,1);
             }
          
@@ -255,22 +276,18 @@ int main (int argc, char *argv[])
         if (resmag < res_threshold) { 
             printf("\nLoop breaks at iteration %d with residue %e < %e",iter,resmag,res_threshold); 
             printf("\nL %d\tm %f\tnlevels %d\tnum_per_level %d\tAns %d\n",L,p.m,p.nlevels,num_iters,iter);
-            fprintf(pfile,"%d\t%f\t%d\t%d\t%d\n",L,p.m,p.nlevels,num_iters,iter);
+            fprintf(pfile1,"%d\t%f\t%d\t%d\t%d\n",L,p.m,p.nlevels,num_iters,iter);
+            f_write_op(phi[0],r[0], iter, pfile2, pfile3, p); 
             break;}
         else if (resmag > 1e6) {
             printf("\nDiverging. Residue %g at iteration %d",resmag,iter);
             break;}    
-         
-        if(iter%10==0) {
-            printf("At iteration %d, the mag residue is %g \n",iter,resmag);   }
     }
-    // for(int i=0; i<p.nlevels; i++)
-    //     for (int j=0; j<p.size[i]; j++) 
-    //         printf("%f\t",phi[i][j]);
-    
+   
     cout<<endl;
-    fclose(pfile);
-    
+    fclose(pfile1);
+    fclose(pfile2);
+    fclose(pfile3);
     
     for(int i=0; i<=p.nlevels+1; i++){
         delete[] phi[i]; delete[] r[i];
@@ -280,6 +297,5 @@ int main (int argc, char *argv[])
     return 0;
     
 }
-
 
 
