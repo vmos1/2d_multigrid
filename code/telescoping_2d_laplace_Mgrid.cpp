@@ -68,11 +68,9 @@ void relax(double *phi, double *res, int lev, int num_iter, params p, int gs_fla
                     phitemp[x+y*L]= p.scale[lev]*(phi[(x+1)%L+y*L] +phi[(x-1+L)%L+y*L] 
                                         +phi[x+((y+1)%L)*L] +phi[x+((y-1+L)%L)*L] -res[x+y*L]*a*a); }
 }}
-                if (gs_flag==0){
+        if (gs_flag==0){
             for (x=0; x<L; x++) for(y=0; y<L; y++)  phi[x+y*L]=phitemp[x+y*L];}
-     
 }
-
 }
                                             
 void f_projection(double *res_c, double *res_f, double *phi, int level, params p, int quad){
@@ -121,7 +119,7 @@ void f_interpolate(double *phi_f,double *phi_c,int lev,params p, int quad)
     Lc = p.size[lev];  // coarse  level
     L = p.size[lev-1]; 
   
-    for(x = 0; x< Lc; x++)
+    for(x = 0; x< Lc; x++){
         for(y=0;y<Lc;y++){
                 // phi_f[2*x+(2*y)*L]                += phi_c[x+y*Lc];
                 // phi_f[2*x+((2*y+1)%L)*L]          += phi_c[x+y*Lc];
@@ -139,13 +137,11 @@ void f_interpolate(double *phi_f,double *phi_c,int lev,params p, int quad)
             phi_f[xa+yb*L]    += phi_c[x+y*Lc];
             phi_f[xb+ya*L]    += phi_c[x+y*Lc];
             phi_f[xb+yb*L]    += phi_c[x+y*Lc]; 
-    
-           } 
+           }} 
     
 //    printf("Interpolate quad %d; level %d\n",quad,lev);
   //set to zero so phi = error 
   for(x = 0; x< Lc; x++) for(y=0; y<Lc; y++) phi_c[x+y*Lc] = 0.0;
-  
 }
 
 void f_write_op(double *phi, double *r, int iter, FILE* pfile2, params p){
@@ -190,13 +186,12 @@ int main (int argc, char *argv[])
     FILE * pfile2 = fopen ("results_phi.txt","w"); 
     FILE * pfile3 = fopen ("results_residue.txt","w"); 
 
-    
     double resmag,res_threshold;
     int L, max_levels;
     int iter,lvl;
     int gs_flag; // Flag for gauss-seidel (=1)
     gs_flag=1; 
-    gs_flag=0; 
+    // gs_flag=0; 
     // #################### 
     // Set parameters
     // L=256;
@@ -260,8 +255,8 @@ int main (int argc, char *argv[])
             phi_tel[i][j]=0.0; r_tel[i][j]=0.0; }}
  
     // Define sources
-    r[0][0]=1.0;r[0][1+0*L]=2.0;r[0][2+2*L]=5.0;r[0][3+3*L]=7.5;
-    // r[0][p.L/2][p.L/2]=1.0*p.scale[0];
+    // r[0][0]=1.0;r[0][1+0*L]=2.0;r[0][2+2*L]=5.0;r[0][3+3*L]=7.5;
+    r[0][p.L/2+(p.L/2)*L]=1.0*p.scale[0];
    
     resmag=f_get_residue_mag(phi[0],r[0],0,p);
     cout<<"\nResidue "<<resmag<<endl;
@@ -269,8 +264,9 @@ int main (int argc, char *argv[])
     // Flag for telescoping tests
     int t_flag;
     t_flag=0;
-//    t_flag=1;
+    // t_flag=1;
     printf("\nTelescoping flag is %d\n",t_flag);
+    int quad=1;
     // exit(1);
     for(iter=0; iter < max_iters; iter++){
 
@@ -283,27 +279,45 @@ int main (int argc, char *argv[])
         if(p.nlevels>0){
             // Go down: fine -> coarse
             for(lvl=0;lvl<p.nlevels;lvl++){
+                //printf("\nlvl %d, %d",lvl,p.size[lvl]);
                 relax(phi[lvl],r[lvl], lvl, num_iters,p,gs_flag); // Perform Gauss-Seidel
                 //Project to coarse lattice 
-                if((lvl==p.nlevels-1)&&(t_flag==1)){
+                if((lvl==p.nlevels-1)&&(t_flag==1)){// non-telescoping only for going to the lowest level
+                    // f_projection(r[lvl+1],r[lvl],phi[lvl],lvl,p,quad); 
                     for(int i=0;i<4;i++){// Project 4 independent ways
-                        f_projection(r_tel[i],r[lvl],phi[lvl],lvl,p,i+1); }}
-        
-                else f_projection(r[lvl+1],r[lvl],phi[lvl],lvl,p,1); 
+                        f_projection(r_tel[i],r[lvl],phi[lvl],lvl,p,i+1); }
+                }
+                else f_projection(r[lvl+1],r[lvl],phi[lvl],lvl,p,quad); 
+                // printf("\nlvl %d, %d",lvl,p.size[lvl]);
+                
             }
             
             // come up: coarse -> fine
             for(lvl=p.nlevels;lvl>=0;lvl--){
                 // Telescoping method
-                if((lvl==p.nlevels)&&(t_flag==1)){
-                    for(int i=0;i<4;i++){// Project 4 independent ways
-                        relax(phi_tel[lvl],r_tel[i], lvl, num_iters,p,gs_flag);} // Perform Gauss-Seidel
-                // Average out 4 components
-                    for (int j=0; j<j_size*j_size; j++) phi[lvl][j]=0.25*(phi_tel[0][j]+phi_tel[1][j]+phi_tel[2][j]+phi_tel[3][j]);}
+                if((lvl==p.nlevels)&&(t_flag==1)){// non-telescoping only for coming up from the lowest level
+                
+                // Need to manually rest phi_tel values 
+                for(int i=0; i<4; i++) for(int j=0; j< j_size*j_size; j++) phi_tel[i][j]=0.0; 
+
+                for(int i=0;i<4;i++){// Project 4 independent ways
+                    relax(phi_tel[i],r_tel[i], lvl, num_iters,p,gs_flag);} // Perform Relaxation
+                
+                // Average out 4 copies
+                    // for (int j=0; j<j_size*j_size; j++) phi[lvl][j]=0.25*(phi_tel[0][j]+phi_tel[1][j]+phi_tel[2][j]+phi_tel[3][j]); 
+                    // for (int j=0; j<j_size*j_size; j++) phi[lvl][j]=(1/3.0)*(phi_tel[0][j]+phi_tel[1][j] + phi_tel[2][j]);
+                    // for (int j=0; j<j_size*j_size; j++) phi[lvl][j]=0.5*(phi_tel[0][j]+phi_tel[1][j]);
+                    // for (int j=0; j<j_size*j_size; j++) phi[lvl][j]=phi_tel[0][j];
+                    int nn=1;
+                    for (int j=0; j<j_size*j_size; j++) {
+                        phi[lvl][j]=0;
+                        for (int k=0;k<nn;k++)  phi[lvl][j]+=(phi_tel[k][j]/(nn*1.0));}
+                
+                }
                 
                 else {relax(phi[lvl],r[lvl], lvl, num_iters,p,gs_flag);} // Perform Gauss-Seidel
                 
-                if(lvl>0) f_interpolate(phi[lvl-1],phi[lvl],lvl,p,1);
+                if(lvl>0) f_interpolate(phi[lvl-1],phi[lvl],lvl,p,quad);
                 }
              
         }
@@ -327,8 +341,12 @@ int main (int argc, char *argv[])
     fclose(pfile3);
     
     for(int i=0; i<=p.nlevels+1; i++){
-        delete[] phi[i]; delete[] r[i];
-    } 
+        delete[] phi[i]; delete[] r[i]; } 
+    
+    for(int i=0; i<4; i++){
+        delete[] phi_tel[i]; delete[] r_tel[i]; } 
+     
+    
     // delete[] phi; delete[] r;
             
     return 0;
