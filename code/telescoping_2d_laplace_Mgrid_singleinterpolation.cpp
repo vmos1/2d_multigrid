@@ -71,7 +71,6 @@ void relax(double *phi, double *res, int lev, int num_iter, params p, int gs_fla
         if (gs_flag==0){
             for (x=0; x<L; x++) for(y=0; y<L; y++)  phi[x+y*L]=phitemp[x+y*L];}
 }
-delete[] phitemp;
 }
                                             
 void f_projection(double *res_c, double *res_f, double *phi, int level, params p, int quad){
@@ -119,14 +118,14 @@ void f_interpolate(double *phi_f,double *phi_c,int lev,params p, int quad)
     int xa,xb,ya,yb;
     Lc = p.size[lev];  // coarse  level
     L = p.size[lev-1]; 
-    
+  
     for(x = 0; x< Lc; x++){
         for(y=0;y<Lc;y++){
-            // phi_f[2*x+(2*y)*L]                += phi_c[x+y*Lc];
-            // phi_f[2*x+((2*y+1)%L)*L]          += phi_c[x+y*Lc];
-            // phi_f[(2*x+1)%L+(2*y)*L]          += phi_c[x+y*Lc];
-            // phi_f[(2*x+1)%L+((2*y+1)%L)*L]    += phi_c[x+y*Lc]; 
-
+                // phi_f[2*x+(2*y)*L]                += phi_c[x+y*Lc];
+                // phi_f[2*x+((2*y+1)%L)*L]          += phi_c[x+y*Lc];
+                // phi_f[(2*x+1)%L+(2*y)*L]          += phi_c[x+y*Lc];
+                // phi_f[(2*x+1)%L+((2*y+1)%L)*L]    += phi_c[x+y*Lc]; 
+            
             xa=2*x;ya=2*y;
             // Determine which quadrant to use 
             if(quad==1)      {xb=(2*x+1+L)%L;yb=(2*y+1+L)%L;}
@@ -241,7 +240,7 @@ int main (int argc, char *argv[])
             phi[i][j]=0.0; r[i][j]=0.0; }}
     
     // Arrays for telescoping procedure. 4 arrays for last layer
-    double *r_tel[4], *phi_tel[4], *phi_tel2[4];
+    double *r_tel[4], *phi_tel[4];
     int j_size=p.size[p.nlevels];
     
     for(int level=0;level<p.nlevels+1;level++){
@@ -249,14 +248,12 @@ int main (int argc, char *argv[])
     
     for(int i=0; i<4; i++){
         phi_tel[i]=new double [j_size*j_size];
-        phi_tel2[i]=new double [(j_size*2*j_size*2)];
         r_tel[i]=new double [j_size*j_size];
         }
     for(int i=0; i<4; i++){
         for(int j=0; j< j_size*j_size; j++){
-            phi_tel[i][j]=0.0; r_tel[i][j]=0.0; }
-        for(int j=0; j< j_size*2*j_size*2; j++){
-            phi_tel2[i][j]=0.0;}} 
+            phi_tel[i][j]=0.0; r_tel[i][j]=0.0; }}
+ 
     // Define sources
     // r[0][0]=1.0;r[0][1+0*L]=2.0;r[0][2+2*L]=5.0;r[0][3+3*L]=7.5;
     r[0][p.L/2+(p.L/2)*L]=1.0*p.scale[0];
@@ -267,13 +264,12 @@ int main (int argc, char *argv[])
     // Flag for telescoping tests
     int t_flag;
     t_flag=0;
-    t_flag=1;
-    int n_copies=4;
-    
+    // t_flag=1;
     printf("\nTelescoping flag is %d\n",t_flag);
     int quad=1;
     // exit(1);
     for(iter=0; iter < max_iters; iter++){
+
         if(iter%1==0) {
             printf("At iteration %d, the mag residue is %g \n",iter,resmag);   
             f_write_op(phi[0],r[0], iter, pfile2,p);      
@@ -293,31 +289,35 @@ int main (int argc, char *argv[])
                 }
                 else f_projection(r[lvl+1],r[lvl],phi[lvl],lvl,p,quad); 
                 // printf("\nlvl %d, %d",lvl,p.size[lvl]);
+                
             }
             
             // come up: coarse -> fine
             for(lvl=p.nlevels;lvl>=0;lvl--){
-                // Non-Telescoping method
+                // Telescoping method
                 if((lvl==p.nlevels)&&(t_flag==1)){// non-telescoping only for coming up from the lowest level
-                    for(int i=0;i<n_copies;i++){// Project 4 independent ways
-                        relax(phi_tel[i],r_tel[i], lvl, num_iters,p,gs_flag); // Perform Relaxation
-                        f_interpolate(phi_tel2[i],phi_tel[i],lvl,p,i+1); 
-                    }
+                
+                // Need to manually rest phi_tel values 
+                for(int i=0; i<4; i++) for(int j=0; j< j_size*j_size; j++) phi_tel[i][j]=0.0; 
 
-                // //Average over values 
-                for (int j=0; j<(p.size[lvl-1]*p.size[lvl-1]); j++) {
-                    for(int i=0;i<n_copies;i++){// Project 4 independent ways
-                        phi[lvl-1][j]+=phi_tel2[i][j]/((double)n_copies);}}
-                        // phi[lvl-1][j]+=phi_tel2[i][j]*4.0;}}
-                    
-                // Need to manually rest phi_tel2 values 
-                for(int i=0; i<4; i++) for(int j=0; j< j_size*j_size*2*2; j++) phi_tel2[i][j]=0.0; 
+                for(int i=0;i<4;i++){// Project 4 independent ways
+                    relax(phi_tel[i],r_tel[i], lvl, num_iters,p,gs_flag);} // Perform Relaxation
+                
+                // Average out 4 copies
+                    // for (int j=0; j<j_size*j_size; j++) phi[lvl][j]=0.25*(phi_tel[0][j]+phi_tel[1][j]+phi_tel[2][j]+phi_tel[3][j]); 
+                    // for (int j=0; j<j_size*j_size; j++) phi[lvl][j]=(1/3.0)*(phi_tel[0][j]+phi_tel[1][j] + phi_tel[2][j]);
+                    // for (int j=0; j<j_size*j_size; j++) phi[lvl][j]=0.5*(phi_tel[0][j]+phi_tel[1][j]);
+                    // for (int j=0; j<j_size*j_size; j++) phi[lvl][j]=phi_tel[0][j];
+                    int nn=1;
+                    for (int j=0; j<j_size*j_size; j++) {
+                        phi[lvl][j]=0;
+                        for (int k=0;k<nn;k++)  phi[lvl][j]+=(phi_tel[k][j]/(nn*1.0));}
+                
                 }
-                 
-                else {
-                    relax(phi[lvl],r[lvl], lvl, num_iters,p,gs_flag); // Perform Gauss-Seidel
-                    if(lvl>0) f_interpolate(phi[lvl-1],phi[lvl],lvl,p,quad); 
-                }
+                
+                else {relax(phi[lvl],r[lvl], lvl, num_iters,p,gs_flag);} // Perform Gauss-Seidel
+                
+                if(lvl>0) f_interpolate(phi[lvl-1],phi[lvl],lvl,p,quad);
                 }
              
         }
