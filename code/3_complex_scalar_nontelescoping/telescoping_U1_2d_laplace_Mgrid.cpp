@@ -261,14 +261,14 @@ int main (int argc, char *argv[])
     
     // Declare pointer arrays
     Complex *phi[20], *r[20];
-    for(int i=0; i<=p.nlevels+1; i++){
+    for(int i=0; i<p.nlevels+1; i++){
         phi[i]=new Complex [p.size[i]*p.size[i]];
         r[i]=new Complex [p.size[i]*p.size[i]];
         }
     
     for(int i=0; i< p.nlevels+1; i++){
         for(int j=0; j< p.size[i]*p.size[i]; j++){
-            phi[i][j]=1.0; r[i][j]=1.0; }}   
+            phi[i][j]=0.0; r[i][j]=0.0; }}   
     
     Complex *U[20]; // Link fields at each point with two directions
     for(int i=0; i<=p.nlevels+1; i++){
@@ -278,13 +278,13 @@ int main (int argc, char *argv[])
     // Initialize link variables
     for(int i=0; i< p.nlevels+1; i++){
         for(int j=0; j< p.size[i]*p.size[i]*2; j++){
-            U[i][j]=std::polar(1.0,dist(gen)); }} //random
-            // U[i][j]=1.0; }}
+            // U[i][j]=std::polar(1.0,dist(gen)); }} //random
+            U[i][j]=1.0; }}
     
     // Apply gauge transformation
-    for(int i=0; i< p.nlevels+1; i++){
-        for(int j=0; j< p.size[i]*p.size[i]; j++){
-            phi[i][j]=phi[i][j]*std::polar(1.0,dist(gen)); }}
+    // for(int i=0; i< p.nlevels+1; i++){
+    //     for(int j=0; j< p.size[i]*p.size[i]; j++){
+    //         phi[i][j]=phi[i][j]*std::polar(1.0,dist(gen)); }}
     
     // Arrays for telescoping procedure. 4 arrays for last layer
     Complex *r_tel[4], *phi_tel[4];
@@ -313,13 +313,14 @@ int main (int argc, char *argv[])
     int n_copies=4;
     printf("\nTelescoping flag is %d\n",t_flag);
     int quad=1;
-    
+    // exit(1);
     for(iter=0; iter < max_iters; iter++){
         if(iter%1==0) {
             printf("At iteration %d, the mag residue is %g \n",iter,resmag);   
             f_write_op(phi[0],r[0], iter, pfile2,p);      
             f_write_residue(U[0],phi[0],r[0],0, iter, pfile3, p);
      }     
+        printf("stage 2\n");
         // Do Multigrid 
         if(p.nlevels>0){
             // Go down: fine -> coarse
@@ -331,7 +332,7 @@ int main (int argc, char *argv[])
                         f_projection(r_tel[i],r[lvl],phi[lvl],U[lvl],lvl,p,i+1); }
                 }
                 else f_projection(r[lvl+1],r[lvl],phi[lvl],U[lvl],lvl,p,quad); 
-                // printf("\nlvl %d, %d",lvl,p.size[lvl]);
+                printf("\nlvl %d, %d",lvl,p.size[lvl]);
             }
             
             // come up: coarse -> fine
@@ -359,9 +360,9 @@ int main (int argc, char *argv[])
         
         else { relax(U[0],phi[0],r[0], 0, num_iters,p,gs_flag);} // Perform Relaxation only
         
-        // relax(U[0],phi[0],r[0], 0, num_iters,p,gs_flag);
-
-        // printf("stage 2\n");
+        relax(U[0],phi[0],r[0], 0, num_iters,p,gs_flag);
+        // exit(1);
+        
         resmag=f_get_residue_mag(U[0],phi[0],r[0],0,p);
         if (resmag < res_threshold) { 
             printf("\nLoop breaks at iteration %d with residue %e < %e",iter,resmag,res_threshold); 
@@ -378,13 +379,13 @@ int main (int argc, char *argv[])
     
     fclose(pfile1); fclose(pfile2); fclose(pfile3);
     
-    for(int i=0; i<=p.nlevels+1; i++){
+    for(int i=0; i<p.nlevels+1; i++){
         delete[] phi[i]; delete[] r[i]; delete[] U[i]; } 
     
      for(int i=0; i<4; i++){
         delete[] phi_tel[i]; delete[] r_tel[i]; } 
     // delete[] phi; delete[] r;
-    exit(0); 
+    exit(1); 
     return 0;
     
 }

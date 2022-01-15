@@ -233,7 +233,7 @@ int main (int argc, char *argv[])
     
     // Declare pointer arrays
     double *phi[20], *r[20];
-    for(int i=0; i<=p.nlevels+1; i++){
+    for(int i=0; i<p.nlevels+1; i++){
         phi[i]=new double [p.size[i]*p.size[i]];
         r[i]=new double [p.size[i]*p.size[i]];
         }
@@ -333,7 +333,7 @@ int main (int argc, char *argv[])
     fclose(pfile2);
     fclose(pfile3);
     
-    for(int i=0; i<=p.nlevels+1; i++){
+    for(int i=0; i<p.nlevels+1; i++){
         delete[] phi[i]; delete[] r[i]; } 
     
     for(int i=0; i<4; i++){
