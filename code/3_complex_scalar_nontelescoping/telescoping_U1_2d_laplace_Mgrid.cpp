@@ -14,6 +14,7 @@ Implementing non-telescoping method for 2D laplace Multigrid
 using namespace std;
 typedef std::complex<double> Complex;
 
+#define PI 3.14159265358979323846  // pi 
 typedef struct{
     int L;
     int nlevels;
@@ -30,10 +31,8 @@ void f_residue(Complex* rtemp, Complex *U, Complex *phi, Complex *b, int level, 
         for(int y=0; y<L; y++)
             rtemp[x+y*L]=b[x+y*L]-(1.0/pow(p.a[level],2))*
                                                 (U[x+y*L+0*L*L]*phi[(x+1)%L+y*L]
-                                                // +conj(U[x+y*L+0*L*L])*phi[(x-1+L)%L+y*L] 
                                                 +conj(U[(x-1+L)%L+y*L+0*L*L])*phi[(x-1+L)%L+y*L] 
                                                 +U[x+y*L+1*L*L]*phi[x+((y+1)%L)*L] 
-                                                // +conj(U[x+y*L+1*L*L])*phi[x+((y-1+L)%L)*L] 
                                                 +conj(U[x+((y-1+L)%L)*L+1*L*L])*phi[x+((y-1+L)%L)*L] 
                                                 -phi[x+y*L]/p.scale[level]); 
 }
@@ -266,13 +265,34 @@ int main (int argc, char *argv[])
     for(int i=0; i< p.nlevels+1; i++){
         for(int j=0; j< p.size[i]*p.size[i]*2; j++){
             U[i][j]=1.0; 
-            U[i][j]=rnd1; 
+            // U[i][j]=std::polar(1.0,PI);
+            // U[i][j]=rnd1; 
             // U[i][j]=std::polar(1.0,dist(gen)); 
         }}
+    
+   // //Write phases to file  
+   //  FILE* pfile4 = fopen ("Uphases.txt","w"); 
+   //  for(int x=0; x<L; x++){ 
+   //      for(int y=0; y<L; y++){ 
+   //          for(int k=0; k<2; k++){
+   //              fprintf(pfile4,"%f+i%f\n",real(U[0][x+L*y+k*L*L]),imag(U[0][x+L*y+k*L*L]));}}}
+   //  fclose(pfile4);
+   
+    // Read phases from file
+    double re,im;
+    FILE* pfile5 = fopen ("Uphases.txt","r"); 
+    for(int x=0; x<L; x++){ 
+        for(int y=0; y<L; y++){ 
+            for(int k=0; k<2; k++){
+            fscanf(pfile5,"%lf+i%lf\n",&re,&im);
+            U[0][x+L*y+k*L*L]=complex<double>(re,im);
+            }}}
+    fclose(pfile5);
+   
     // Print initial phases
     for(int i=0; i< p.nlevels+1; i++){
         for(int j=0; j< p.size[i]*p.size[i]*2; j++){
-             printf("%f+i%f\t",real(U[i][j]),imag(U[i][j]));
+             printf("%lf+i%lf\t",real(U[i][j]),imag(U[i][j]));
                    } printf("\n");} //random 
             
     // Apply gauge transformation
@@ -355,8 +375,6 @@ int main (int argc, char *argv[])
         }
         
         else { relax(U[0],phi[0],r[0], 0, num_iters,p,gs_flag);} // Perform Relaxation only
-        
-        // relax(U[0],phi[0],r[0], 0, num_iters,p,gs_flag);
         
         resmag=f_get_residue_mag(U[0],phi[0],r[0],0,p);
         if (resmag < res_threshold) {  // iter+1 everywhere below since iteration is complete
