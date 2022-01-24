@@ -56,7 +56,8 @@ double f_get_residue_mag(Complex *U, Complex *phi, Complex *b, int level, params
 }
 
 void relax(Complex* U, Complex *phi, Complex *res, int lev, int num_iter, params p, int gs_flag){
-// Takes in a res. To solve: A phi = res    
+// Takes in a res. To solve: A phi = res
+    // gs_flag 0 -> Jacobi, 1 -> Gauss-Seidel
     int i,x,y;
     int L;
     double a;
@@ -85,7 +86,41 @@ void relax(Complex* U, Complex *phi, Complex *res, int lev, int num_iter, params
 }
     delete[] phitemp;
 }
-                                            
+
+
+void f_near_null(Complex* phi_null, Complex* U, int level, int quad, int num_iters, int gs_flag, params p){
+    // Build near null vectors and normalize them
+    double norm;
+    int L,Lc,xa,xb,ya,yb,x,y;
+    
+    L=p.size[level];
+    Lc=p.size[level+1];
+    
+    Complex* r_zero = new Complex [L*L]; 
+    
+    for(int x=0;x<L; x++) 
+        for(int y=0; y<L; y++) {
+            r_zero[x+y*L]=0.0;  }
+    
+    // Relaxation with zero source
+    for (int i=0; i<5; i++){
+        relax(U,phi_null,r_zero, level, num_iters,p,gs_flag);}
+   
+    // Compute norm in block and normalize each block and store in single near-null vector
+    for(int x=0;x<Lc; x++) 
+        for(int y=0; y<Lc; y++) {
+            xa=2*x;ya=2*y;
+            xb=(2*x+1+L)%L;yb=(2*y+1+L)%L;
+            
+            double norm;
+            norm=sqrt(pow(abs(phi_null[xa+ya*L]),2) 
+                 +pow(abs(phi_null[xa+yb*L]),2)
+                 +pow(abs(phi_null[xb+ya*L]),2)
+                 +pow(abs(phi_null[xb+yb*L]),2))/4.0;// Factor of 4=2x2 for adding 4 terms (blocking by factor 2 and 2D -> 4 ngbs )
+} delete[] r_zero; 
+    
+}
+
 void f_projection(Complex *res_c, Complex *res_f, Complex *phi,Complex *U, Complex* phi_null, int level, params p, int quad){
     // Multigrid module that projects downward to coarser lattices
     int L,Lc;
@@ -106,24 +141,16 @@ void f_projection(Complex *res_c, Complex *res_f, Complex *phi,Complex *U, Compl
 //    printf("Project quad %d level %d\n",quad,level);
     for(int x=0;x<Lc; x++) 
         for(int y=0; y<Lc; y++) {
-            
             xa=2*x;ya=2*y;
-            // Determine which quadrant to use 
-            if(quad==1)      {xb=(2*x+1+L)%L;yb=(2*y+1+L)%L;}
-            else if(quad==2) {xb=(2*x-1+L)%L;yb=(2*y+1+L)%L;}
-            else if(quad==3) {xb=(2*x-1+L)%L;yb=(2*y-1+L)%L;}
-            else if(quad==4) {xb=(2*x+1+L)%L;yb=(2*y-1+L)%L;}
-  
+            xb=(2*x+1+L)%L;yb=(2*y+1+L)%L;
                
             // Apply Restriction operation to residue
-            res_c[x+y*Lc]=(phi_null[xa+ya*L]*rtemp[xa+ya*L]
-                                     +phi_null[xa+yb*L]*rtemp[xa+yb*L]
-                                     +phi_null[xb+ya*L]*rtemp[xb+ya*L]
-                                     +phi_null[xb+yb*L]*rtemp[xb+yb*L]);
-            // res_c[x+y*Lc]=0.25*(rtemp[2*x+(2*y)*L] +rtemp[(2*x+1)%L+(2*y)*L] +rtemp[2*x+((2*y+1)%L)*L] + rtemp[(2*x+1)%L+((2*y+1)%L)*L]);
-                                      
-        }
-    delete[] rtemp;
+            res_c[x+y*Lc]=0.25*
+                          (conj(phi_null[xa+ya*L])*rtemp[xa+ya*L]
+                          +conj(phi_null[xa+yb*L])*rtemp[xa+yb*L]
+                          +conj(phi_null[xb+ya*L])*rtemp[xb+ya*L]
+                          +conj(phi_null[xb+yb*L])*rtemp[xb+yb*L]);
+        }delete[] rtemp;
 }
 
 void f_interpolate(Complex *phi_f,Complex *phi_c, Complex* phi_null,int lev,params p, int quad)
@@ -136,17 +163,8 @@ void f_interpolate(Complex *phi_f,Complex *phi_c, Complex* phi_null,int lev,para
     
     for(x = 0; x< Lc; x++){
         for(y=0;y<Lc;y++){
-            // phi_f[2*x+(2*y)*L]                += phi_c[x+y*Lc];
-            // phi_f[2*x+((2*y+1)%L)*L]          += phi_c[x+y*Lc];
-            // phi_f[(2*x+1)%L+(2*y)*L]          += phi_c[x+y*Lc];
-            // phi_f[(2*x+1)%L+((2*y+1)%L)*L]    += phi_c[x+y*Lc]; 
-
-            xa=2*x;ya=2*y;
-            // Determine which quadrant to use 
-            if(quad==1)      {xb=(2*x+1+L)%L;yb=(2*y+1+L)%L;}
-            else if(quad==2) {xb=(2*x-1+L)%L;yb=(2*y+1+L)%L;}
-            else if(quad==3) {xb=(2*x-1+L)%L;yb=(2*y-1+L)%L;}
-            else if(quad==4) {xb=(2*x+1+L)%L;yb=(2*y-1+L)%L;}
+           xa=2*x;ya=2*y;
+            xb=(2*x+1+L)%L;yb=(2*y+1+L)%L;
             
             // Apply interpolation to phi
             phi_f[xa+ya*L]    += phi_null[xa+ya*L]*phi_c[x+y*Lc];
@@ -154,8 +172,6 @@ void f_interpolate(Complex *phi_f,Complex *phi_c, Complex* phi_null,int lev,para
             phi_f[xb+ya*L]    += phi_null[xb+ya*L]*phi_c[x+y*Lc];
             phi_f[xb+yb*L]    += phi_null[xb+yb*L]*phi_c[x+y*Lc]; 
            }} 
-    
-//    printf("Interpolate quad %d; level %d\n",quad,lev);
   //set to zero so phi = error 
   for(x = 0; x< Lc; x++) for(y=0; y<Lc; y++) phi_c[x+y*Lc] = 0.0;
 }
@@ -190,81 +206,6 @@ void f_write_residue(Complex *U, Complex *phi, Complex *b, int level, int iter, 
 }
 
 
-/*
-void f_adaptive_mg(Complex* A, Complex* U, int Lf, int Lc, int level, params p){
-    
-    Complex* r_zero = new Complex [Lf*Lf]; 
-    Complex *phi_null=new Complex [Lf*Lf];
-    
-    for(int x=0;x<Lf; x++) 
-        for(int y=0; y<Lf; y++) {
-            r_zero[x+y*L]=0.0; 
-            phi_null[x+y*L]=1.0; }
-    // Find near null vectors
-    for (int i=0; i<5; i++){
-        relax(U[level],phi_null,r_zero, 0, num_iters,p,gs_flag);}
-   
-    // Build 
-    int quad=1;
-    for(int x=0;x<Lf*Lf;x++) for(int y=0;y<Lc*Lc;y++) A[x][y]=0.0; // Initialize to 0
-    for(int x=0;x<Lc; x++) 
-        for(int y=0; y<Lc; y++) {
-            xa=2*x;ya=2*y;
-            // Determine which quadrant to use 
-            if(quad==1)      {xb=(2*x+1+L)%L;yb=(2*y+1+L)%L;}
-            else if(quad==2) {xb=(2*x-1+L)%L;yb=(2*y+1+L)%L;}
-            else if(quad==3) {xb=(2*x-1+L)%L;yb=(2*y-1+L)%L;}
-            else if(quad==4) {xb=(2*x+1+L)%L;yb=(2*y-1+L)%L;} 
-            
-            double norm;
-            norm=phi_null[xa+ya*Lf]+phi_null[xa+yb*Lf]+phi_null[xb+ya*Lf]+phi_null[xb+yb*Lf];
-            A[xa+ya*Lf][x+y*Lc]=phi_null[xa+ya*Lf]/norm;
-            A[xa+yb*Lf][x+y*Lc]=phi_null[xa+yb*Lf]/norm;
-            A[xb+ya*Lf][x+y*Lc]=phi_null[xb+ya*Lf]/norm;
-            A[xb+yb*Lf][x+y*Lc]=phi_null[xb+yb*Lf]/norm;
-}
-*/
-    
-void f_near_null(Complex* phi_null, Complex* U, int level, int quad, params p){
-    
-    double norm;
-    
-    L=p.size[level];
-    Lc=p.size[level+1];
-    
-    Complex* r_zero = new Complex [L*L]; 
-    Complex *phi_null=new Complex [L*L];
-    for(int x=0;x<L; x++) 
-        for(int y=0; y<L; y++) {
-            r_zero[x+y*L]=0.0; 
-            phi_null[x+y*L]=1.0; }
-    // Find near null vectors
-    for (int i=0; i<5; i++){
-        relax(U[level],phi_null,r_zero, 0, num_iters,p,gs_flag);}
-   
-    // Build 
-    for(int x=0;x<Lc; x++) 
-        for(int y=0; y<Lc; y++) {
-            xa=2*x;ya=2*y;
-            // Determine which quadrant to use 
-            if(quad==1)      {xb=(2*x+1+L)%L;yb=(2*y+1+L)%L;}
-            else if(quad==2) {xb=(2*x-1+L)%L;yb=(2*y+1+L)%L;}
-            else if(quad==3) {xb=(2*x-1+L)%L;yb=(2*y-1+L)%L;}
-            else if(quad==4) {xb=(2*x+1+L)%L;yb=(2*y-1+L)%L;} 
-            
-            double norm;
-            norm=(abs(phi_null[xa+ya*L])
-                 +abs(phi_null[xa+ya*L])    
-                 +abs(phi_null[xa+ya*L])
-                 +abs(phi_null[xa+ya*L]))/4.0
-             
-            phi_null[xa+ya*L] = phi_null[xa+ya*L]/norm;
-            phi_null[xa+yb*L] = phi_null[xa+yb*L]/norm;
-            phi_null[xb+ya*L] = phi_null[xb+ya*L]/norm;
-            phi_null[xb+yb*L] = phi_null[xb+yb*L]/norm;
- } 
-    
-    
     
 int main (int argc, char *argv[])
     { 
@@ -273,12 +214,11 @@ int main (int argc, char *argv[])
     FILE * pfile1 = fopen ("results_gen_scaling.txt","a"); 
     FILE * pfile2 = fopen ("results_phi.txt","w"); 
     FILE * pfile3 = fopen ("results_residue.txt","w"); 
-
+ 
     double resmag,res_threshold;
     int L, max_levels;
     int iter,lvl;
     int gs_flag; // Flag for gauss-seidel (=1)
-    int t_flag;  // Flag for telescoping tests
     int num_iters;// Iterations of Gauss-Seidel each time
     gs_flag=1;  // Gauss-seidel
     // gs_flag=0; // Jacobi
@@ -294,7 +234,6 @@ int main (int argc, char *argv[])
     p.m=atof(argv[2]);
     p.nlevels=atoi(argv[3]);
     num_iters=atoi(argv[4]);
-    t_flag=atoi(argv[5]);
     
     res_threshold=1.0e-13;
     int max_iters=5000; // max iterations of main code
@@ -327,15 +266,16 @@ int main (int argc, char *argv[])
     std::uniform_real_distribution<double> dist(-M_PI, M_PI);
     
     // Declare pointer arrays
-    Complex *phi[20], *r[20];
+    Complex *phi[20], *r[20], *phi_null[20];
     for(int i=0; i<p.nlevels+1; i++){
         phi[i]=new Complex [p.size[i]*p.size[i]];
+        phi_null[i]=new Complex [p.size[i]*p.size[i]];
         r[i]=new Complex [p.size[i]*p.size[i]];
         }
     
     for(int i=0; i< p.nlevels+1; i++){
         for(int j=0; j< p.size[i]*p.size[i]; j++){
-            phi[i][j]=0.0; r[i][j]=0.0; }}   
+            phi[i][j]=0.0; r[i][j]=0.0; phi_null[i][j]=1.0; }}   
     
     Complex *U[20]; // Link fields at each point with two directions
     for(int i=0; i<p.nlevels+1; i++){
@@ -349,8 +289,8 @@ int main (int argc, char *argv[])
     for(int i=0; i< p.nlevels+1; i++){
         for(int j=0; j< p.size[i]*p.size[i]*2; j++){
             U[i][j]=1.0; 
-            // U[i][j]=std::polar(1.0,PI);
-            // U[i][j]=rnd1; 
+            // U[i][j]=std::polar(1.0,PI);// Global phase of -1
+            // U[i][j]=rnd1; // Random global phase 
             // U[i][j]=std::polar(1.0,dist(gen)); 
         }}
     
@@ -363,15 +303,15 @@ int main (int argc, char *argv[])
    //  fclose(pfile4);
    
     // Read phases from file
-    double re,im;
-    FILE* pfile5 = fopen ("Uphases.txt","r"); 
-    for(int x=0; x<L; x++){ 
-        for(int y=0; y<L; y++){ 
-            for(int k=0; k<2; k++){
-            fscanf(pfile5,"%lf+i%lf\n",&re,&im);
-            U[0][x+L*y+k*L*L]=complex<double>(re,im);
-            }}}
-    fclose(pfile5);
+    // double re,im;
+    // FILE* pfile5 = fopen ("Uphases.txt","r"); 
+    // for(int x=0; x<L; x++){ 
+    //     for(int y=0; y<L; y++){ 
+    //         for(int k=0; k<2; k++){
+    //         fscanf(pfile5,"%lf+i%lf\n",&re,&im);
+    //         U[0][x+L*y+k*L*L]=complex<double>(re,im);
+    //         }}}
+    // fclose(pfile5);
    
     // Print initial phases
     for(int i=0; i< p.nlevels+1; i++){
@@ -384,23 +324,10 @@ int main (int argc, char *argv[])
     //     for(int j=0; j< p.size[i]*p.size[i]; j++){
     //         phi[i][j]=phi[i][j]*std::polar(1.0,dist(gen)); }}
     
-    // Arrays for telescoping procedure. 4 arrays for last layer
-    Complex *r_tel[4], *phi_tel[4];
-    int j_size=p.size[p.nlevels];
+   for(int level=0;level<p.nlevels+1;level++){
+        printf("\n%d\t%d",level,p.size[level]);}
     
-    for(int level=0;level<p.nlevels+1;level++){
-        printf("\n%d\t%d\t%d",level,p.size[level],j_size);}
-    
-    for(int i=0; i<4; i++){
-        phi_tel[i]=new Complex [j_size*j_size];
-        r_tel[i]=new Complex [j_size*j_size];
-        }
-    for(int i=0; i<4; i++){
-        for(int j=0; j< j_size*j_size; j++){
-            phi_tel[i][j]=0.0; r_tel[i][j]=0.0; }}
- 
     // Define sources
-    // r[0][0]=1.0;r[0][1+0*L]=2.0;r[0][2+2*L]=5.0;r[0][3+3*L]=7.5;
     // r[0][p.L/2+(p.L/2)*L]=1.0*p.scale[0];
     r[0][0]=1.0;
     r[0][1+0*L]=complex<double>(2.0,2.0);
@@ -409,67 +336,37 @@ int main (int argc, char *argv[])
     printf("\n%f+i%f",real(r[0][1]),imag(r[0][1]));
     resmag=f_get_residue_mag(U[0],phi[0],r[0],0,p);
     cout<<"\nResidue "<<resmag<<endl;
-    
-    int n_copies=4;
-    printf("\nTelescoping flag is %d\n",t_flag);
     int quad=1;
     
-    
- 
-    // exit(1);
     for(iter=0; iter < max_iters; iter++){
         if(iter%1==0) {
             printf("At iteration %d, the mag residue is %g \n",iter,resmag);   
             f_write_op(phi[0],r[0], iter, pfile2,p);      
             f_write_residue(U[0],phi[0],r[0],0, iter, pfile3, p);
      }     
-        
         // Do Multigrid 
         if(p.nlevels>0){
             // Go down: fine -> coarse
             for(lvl=0;lvl<p.nlevels;lvl++){
                 relax(U[lvl],phi[lvl],r[lvl], lvl, num_iters,p,gs_flag); // Perform Gauss-Seidel
+                
+                //Compute near null vectors and normalize them
+                // for(int x=0;x<L; x++) for(int y=0; y<L; y++) phi_null[lvl][x+y*L]=1.0; 
+                // f_near_null(phi_null[lvl], U[lvl],lvl, quad, num_iters, gs_flag, p);
+                
                 //Project to coarse lattice 
-                
-                // compute near null vectors and normalize them
-                L=p.size[lvl]
-                Complex *phi_null=new Complex [L*L];
-                for(int x=0;x<L; x++) for(int y=0; y<L; y++) phi_null[x+y*L]=1.0; 
-                f_near_null(phi_null, U,lvl, quad, p)
- 
-                
-                if((lvl==p.nlevels-1)&&(t_flag==1)){// non-telescoping only for going to the lowest level
-                    for(int i=0;i<4;i++){// Project 4 independent ways
-                        f_projection(r_tel[i],r[lvl],phi[lvl],U[lvl],phi_null, lvl,p,i+1); }
-                }
-                else f_projection(r[lvl+1],r[lvl],phi[lvl],U[lvl], phi_null, lvl,p,quad); 
+                f_projection(r[lvl+1],r[lvl],phi[lvl],U[lvl], phi_null[lvl], lvl,p,quad); 
                 // printf("\nlvl %d, %d\n",lvl,p.size[lvl]);
             }
-            
             // come up: coarse -> fine
             for(lvl=p.nlevels;lvl>=0;lvl--){
                 // Non-Telescoping method
-                if((lvl==p.nlevels)&&(t_flag==1)){// non-telescoping only for coming up from the lowest level
-                    
-                    // Need to manually rest phi_tel values 
-                    for(int i=0; i<4; i++) for(int j=0; j< j_size*j_size; j++) phi_tel[i][j]=0.0; 
-
-                    for(int i=0;i<n_copies;i++){// Project 4 independent ways
-                        relax(U[i],phi_tel[i],r_tel[i], lvl, num_iters,p,gs_flag); // Perform Relaxation
-                        if(lvl>0) f_interpolate(phi[lvl-1],phi_tel[i],phi_null,lvl,p,i+1);
-                    }
-                    //Average over values 
-                    for (int j=0; j<(p.size[lvl-1]*p.size[lvl-1]); j++) {
-                        phi[lvl-1][j]=phi[lvl-1][j]/((double)n_copies);}
-                    }
-                else{
                     relax(U[lvl],phi[lvl],r[lvl], lvl, num_iters,p,gs_flag); // Perform Gauss-Seidel
-                    if(lvl>0) f_interpolate(phi[lvl-1],phi[lvl], phi_null, lvl,p,quad);
-                    }
+                    if(lvl>0) f_interpolate(phi[lvl-1],phi[lvl], phi_null[lvl-1], lvl,p,quad);
                 }
         }
-        
-        else { relax(U[0],phi[0],r[0], 0, num_iters,p,gs_flag);} // Perform Relaxation only
+        // No Multi-grid, just Relaxation
+        else { relax(U[0],phi[0],r[0], 0, num_iters,p,gs_flag);}
         
         resmag=f_get_residue_mag(U[0],phi[0],r[0],0,p);
         if (resmag < res_threshold) {  // iter+1 everywhere below since iteration is complete
@@ -482,20 +379,14 @@ int main (int argc, char *argv[])
         else if (resmag > 1e6) {
             printf("\nDiverging. Residue %g at iteration %d",resmag,iter);
             break;}    
-    }
+    }// end of iterations
     
     cout<<endl;
- 
     fclose(pfile1); fclose(pfile2); fclose(pfile3);
-    
+    // Free allocated memory
     for(int i=0; i<p.nlevels+1; i++){
-        delete[] phi[i]; delete[] r[i]; delete[] U[i]; } 
-    
-     for(int i=0; i<4; i++){
-        delete[] phi_tel[i]; delete[] r_tel[i]; } 
-    // exit(1); 
+        delete[] phi[i]; delete[] r[i]; delete[] U[i]; delete[] phi_null[i]; } 
     return 0;
-    
 }
 
 
