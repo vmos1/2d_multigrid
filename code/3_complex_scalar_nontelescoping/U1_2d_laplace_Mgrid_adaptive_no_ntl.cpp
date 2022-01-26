@@ -72,10 +72,8 @@ void relax(Complex* U, Complex *phi, Complex *res, int lev, int num_iter, params
             for(y=0; y<L; y++){
                     phitemp[x+y*L]= p.scale[lev]*
                                             (U[x+y*L+0*L*L]*phi[(x+1)%L+y*L] 
-                                            // +conj(U[x+y*L+0*L*L])*phi[(x-1+L)%L+y*L] 
                                             +conj(U[(x-1+L)%L+y*L+0*L*L])*phi[(x-1+L)%L+y*L] 
                                             +U[x+y*L+1*L*L]*phi[x+((y+1)%L)*L] 
-                                            // +conj(U[x+y*L+1*L*L])*phi[x+((y-1+L)%L)*L] 
                                             +conj(U[x+((y-1+L)%L)*L+1*L*L])*phi[x+((y-1+L)%L)*L] 
                                             -res[x+y*L]*a*a); 
                 // Gauss-Seidel
@@ -103,9 +101,9 @@ void f_near_null(Complex* phi_null, Complex* U, int level, int quad, int num_ite
             r_zero[x+y*L]=0.0;  }
     
     // Relaxation with zero source
-    for (int i=0; i<5; i++){
+    for (int i=0; i<25; i++){
         relax(U,phi_null,r_zero, level, num_iters,p,gs_flag);}
-   
+     
     // Compute norm in block and normalize each block and store in single near-null vector
     for(int x=0;x<Lc; x++) 
         for(int y=0; y<Lc; y++) {
@@ -138,7 +136,6 @@ void f_projection(Complex *res_c, Complex *res_f, Complex *phi,Complex *U, Compl
     f_residue(rtemp,U,phi,res_f,level,p,L);
 
     // Project residue
-//    printf("Project quad %d level %d\n",quad,level);
     for(int x=0;x<Lc; x++) 
         for(int y=0; y<Lc; y++) {
             xa=2*x;ya=2*y;
@@ -289,7 +286,7 @@ int main (int argc, char *argv[])
     for(int i=0; i< p.nlevels+1; i++){
         for(int j=0; j< p.size[i]*p.size[i]*2; j++){
             U[i][j]=1.0; 
-            // U[i][j]=std::polar(1.0,PI);// Global phase of -1
+            U[i][j]=std::polar(1.0,PI);// Global phase of -1
             // U[i][j]=rnd1; // Random global phase 
             // U[i][j]=std::polar(1.0,dist(gen)); 
         }}
@@ -351,8 +348,8 @@ int main (int argc, char *argv[])
                 relax(U[lvl],phi[lvl],r[lvl], lvl, num_iters,p,gs_flag); // Perform Gauss-Seidel
                 
                 //Compute near null vectors and normalize them
-                // for(int x=0;x<L; x++) for(int y=0; y<L; y++) phi_null[lvl][x+y*L]=1.0; 
-                // f_near_null(phi_null[lvl], U[lvl],lvl, quad, num_iters, gs_flag, p);
+                for(int x=0;x<p.size[lvl]; x++) for(int y=0; y<p.size[lvl]; y++) phi_null[lvl][x+y*p.size[lvl]]=1.0; 
+                f_near_null(phi_null[lvl], U[lvl],lvl, quad, num_iters, gs_flag, p);
                 
                 //Project to coarse lattice 
                 f_projection(r[lvl+1],r[lvl],phi[lvl],U[lvl], phi_null[lvl], lvl,p,quad); 
