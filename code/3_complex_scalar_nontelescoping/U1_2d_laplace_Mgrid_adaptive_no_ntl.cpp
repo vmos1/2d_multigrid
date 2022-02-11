@@ -59,10 +59,15 @@ typedef struct{
 void f_residue(Complex* rtemp, Complex *D, Complex *phi, Complex *b,int level, params p){
     // Get residue matrix
     int L;
+    double a;
+    
     L=p.size[level];
+    // a=p.a[level];
+    a=1;
+    
     for(int x=0; x<L; x++)
         for(int y=0; y<L; y++){
-            rtemp[x+y*L]=b[x+y*L]-(1.0/pow(p.a[level],2))*
+            rtemp[x+y*L]=b[x+y*L]-(1.0/(a*a))*
                                                 (D[x+y*L+1*L*L]*phi[(x+1)%L+y*L]
                                                 +D[x+y*L+2*L*L]*phi[(x-1+L)%L+y*L] 
                                                 +D[x+y*L+3*L*L]*phi[x+((y+1)%L)*L] 
@@ -126,7 +131,8 @@ void relax(Complex* D, Complex *phi, Complex *res, int lev, int num_iter, params
     int L;
     double a;
     
-    a=p.a[lev];
+    // a=p.a[lev];
+    a=1;
     L=p.size[lev];
     
     Complex* phitemp = new Complex [L*L]; 
@@ -341,6 +347,51 @@ void f_interpolate(Complex *phi_f,Complex *phi_c, Complex* phi_null,int lev,para
            }} 
     //set to zero so phi = error 
     for(x = 0; x< Lc; x++) for(y=0; y<Lc; y++) phi_c[x+y*Lc] = 0.0;
+}
+
+void f_restriction(Complex *vec_c, Complex *vec_f, Complex* phi_null, int level, params p, int quad){
+    // vec_f -> vec_c using near-null vectors
+    int Lf,Lc;
+    int xa,xb,ya,yb;
+    
+    Lf=p.size[level];
+    Lc=p.size[level+1];
+    
+    // Project residue
+    for(int x=0;x<Lc; x++) 
+        for(int y=0; y<Lc; y++) {
+            xa=2*x;ya=2*y;
+            xb=(2*x+1+Lf)%Lf;yb=(2*y+1+Lf)%Lf;
+               
+            // Apply Restriction operation to residue
+            vec_c[x+y*Lc]=1.0*
+                          (conj(phi_null[xa+ya*Lf])*vec_f[xa+ya*Lf]
+                          +conj(phi_null[xa+yb*Lf])*vec_f[xa+yb*Lf]
+                          +conj(phi_null[xb+ya*Lf])*vec_f[xb+ya*Lf]
+                          +conj(phi_null[xb+yb*Lf])*vec_f[xb+yb*Lf]);
+        }
+}
+
+void f_prolongation(Complex *vec_f,Complex *vec_c, Complex* phi_null,int lev,params p, int quad)
+{  
+    // vec_c -> vec_f using near-null vectors
+    // Multigrid module that projects upward to finer lattices
+    int Lf, Lc, x,y;
+    int xa,xb,ya,yb;
+    Lc = p.size[lev];  // coarse  level
+    Lf = p.size[lev-1]; 
+    
+    for(x=0; x<Lc; x++){
+        for(y=0;y<Lc;y++){
+            xa=2*x;ya=2*y;
+            xb=(2*x+1+Lf)%Lf;yb=(2*y+1+Lf)%Lf;
+            
+            // Apply interpolation to phi
+            vec_f[xa+ya*Lf]    += phi_null[xa+ya*Lf]*vec_c[x+y*Lc];
+            vec_f[xa+yb*Lf]    += phi_null[xa+yb*Lf]*vec_c[x+y*Lc];
+            vec_f[xb+ya*Lf]    += phi_null[xb+ya*Lf]*vec_c[x+y*Lc];
+            vec_f[xb+yb*Lf]    += phi_null[xb+yb*Lf]*vec_c[x+y*Lc]; 
+           }} 
 }
 
 void f_write_op(Complex *phi, Complex *r, int iter, FILE* pfile2, params p){
@@ -822,7 +873,7 @@ int main (int argc, char *argv[])
     for(lvl=0;lvl<p.nlevels;lvl++){
     
         //Compute near null vectors and normalize them
-        f_near_null(phi_null[lvl], D[lvl],lvl, quad, 10, gs_flag, p);
+        f_near_null(phi_null[lvl], D[lvl],lvl, quad, 500, gs_flag, p);
         
         // f_coarsen_null(phi_null[lvl+1],phi_null[lvl],phi_null[lvl],lvl,p,quad);  // Either create new near null vectors at each level or Restrict from upper level
         
