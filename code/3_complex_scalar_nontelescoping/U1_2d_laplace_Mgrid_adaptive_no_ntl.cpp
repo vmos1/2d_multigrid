@@ -154,17 +154,31 @@ void relax(Complex* D, Complex *phi, Complex *res, int lev, int num_iter, params
             for (x=0; x<L; x++) for(y=0; y<L; y++)  phi[x+y*L]=phitemp[x+y*L];}
         
 }
-    // for (x=0; x<L; x++) for(y=0; y<L; y++) printf("%f+i%f\t",real(phi[x+y*L]),imag(phi[x+y*L]));
-    // cout<<endl;
-    
     delete[] phitemp;
+}
+
+double f_g_norm(Complex* vec, int level, int rescale, params p){
+    // Compute global norm of vector and return in. Option to renormalize vector with rescale==1
+    double g_norm;
+    int x,y,L;
+    L=p.size[level];
+    
+    g_norm=0.0;
+    for(int x=0;x<L; x++) 
+        for(int y=0; y<L; y++) {
+           g_norm+=pow(abs(vec[x+y*L]),2); }
+    
+    g_norm=sqrt(g_norm); 
+    if (rescale==1){
+        for(int x=0;x<L; x++) for(int y=0; y<L; y++) vec[x+y*L]/=g_norm;}
+    return g_norm;
 }
 
 void f_near_null(Complex* phi_null, Complex* D, int level, int quad, int num_iters, int gs_flag, params p){
     // Build near null vectors and normalize them
     // Null vector has size L^2. Used to project down or up.
-    double norm;
-    int L,Lc,xa,xb,ya,yb,x,y;
+    double norm,g_norm;
+    int L,Lc,xa,xb,ya,yb,x,y,num;
     
     L=p.size[level];
     Lc=p.size[level+1]; // Coarse part only required for blocking. Can't compute for last level as level+1 doesn't exist for last level.
@@ -172,8 +186,21 @@ void f_near_null(Complex* phi_null, Complex* D, int level, int quad, int num_ite
     Complex* r_zero = new Complex [L*L]; 
     for(int x=0;x<L; x++) for(int y=0; y<L; y++) r_zero[x+y*L]=0.0;  
     
+    // g_norm=f_g_norm(phi_null,level,0,p);
+    // printf("Pre  relaxation. Level %d:\tGlobal norm %25.20e\n",level,g_norm);
+    
     // Relaxation with zero source
-    relax(D,phi_null,r_zero, level, num_iters,p,gs_flag);
+    num=num_iters/50; // Divide into blocks of 50 and normalize at the end
+    if (num==0) num=1; // num should be at least 1
+    for (int i=0;i<num;i++){
+        relax(D,phi_null,r_zero, level, 50,p,gs_flag); // Single relaxation each time, then normalize
+        g_norm=f_g_norm(phi_null,level,1,p);
+        // printf("num %d:\tGlobal norm %25.20e\n",i,g_norm);
+    }
+        
+    //Compute global norm post relaxation
+    // g_norm=f_g_norm(phi_null,level,0,p);
+    // printf("Post relaxation. Level %d:\tGlobal norm %25.20e\n",level,g_norm);
     
     // Compute norm in block and normalize each block and store in single near-null vector
     for(int x=0;x<Lc; x++) 
@@ -194,32 +221,6 @@ void f_near_null(Complex* phi_null, Complex* D, int level, int quad, int num_ite
         }
     
     delete[] r_zero; 
-}
-
-void f_coarsen_null(Complex *null_c, Complex *null_f,Complex* phi_null, int level, params p, int quad){
-    // Module to project near-null vector from upper level
-    // For a given level, construt near-null[lvl] from lvl-1 quantities
-    // This module is optional. Can also just get new near-null vectors at each level
-    
-    int L,Lc;
-    int xa,xb,ya,yb;
-    
-    L=p.size[level];
-    Lc=p.size[level+1];
-    
-    // Project residue
-    for(int x=0;x<Lc; x++) 
-        for(int y=0; y<Lc; y++) {
-            xa=2*x;ya=2*y;
-            xb=(2*x+1+L)%L;yb=(2*y+1+L)%L;
-            
-            // Apply Restriction operation to residue
-            null_c[x+y*Lc]=1.0*
-                          (conj(phi_null[xa+ya*L])*null_f[xa+ya*L]
-                          +conj(phi_null[xa+yb*L])*null_f[xa+yb*L]
-                          +conj(phi_null[xb+ya*L])*null_f[xb+ya*L]
-                          +conj(phi_null[xb+yb*L])*null_f[xb+yb*L]);
-        }
 }
 
 void f_compute_lvl0_matrix(Complex**D, Complex *U, params p){
@@ -295,60 +296,6 @@ void f_compute_coarse_matrix(Complex** D, Complex *phi_null, int level, params p
        }
 }
 
-void f_projection(Complex *res_c, Complex *res_f, Complex *phi,Complex *D, Complex* phi_null, int level, params p, int quad){
-    // Multigrid module that projects downward to coarser lattices
-    int L,Lc;
-    int xa,xb,ya,yb;
-    
-    L=p.size[level];
-    Lc=p.size[level+1];
-    Complex* rtemp = new Complex [L*L];
-    
-    for(int x=0;x<L; x++) 
-        for(int y=0; y<L; y++) 
-            rtemp[x+y*L]=0.0;
-    
-    // Find residue
-    f_residue(rtemp,D,phi,res_f,level,p);
-
-    // Project residue
-    for(int x=0;x<Lc; x++) 
-        for(int y=0; y<Lc; y++) {
-            xa=2*x;ya=2*y;
-            xb=(2*x+1+L)%L;yb=(2*y+1+L)%L;
-               
-            // Apply Restriction operation to residue
-            res_c[x+y*Lc]=1.0*
-                          (conj(phi_null[xa+ya*L])*rtemp[xa+ya*L]
-                          +conj(phi_null[xa+yb*L])*rtemp[xa+yb*L]
-                          +conj(phi_null[xb+ya*L])*rtemp[xb+ya*L]
-                          +conj(phi_null[xb+yb*L])*rtemp[xb+yb*L]);
-        }delete[] rtemp;
-}
-
-void f_interpolate(Complex *phi_f,Complex *phi_c, Complex* phi_null,int lev,params p, int quad)
-{  
-    // Multigrid module that projects upward to finer lattices
-    int L, Lc, x,y;
-    int xa,xb,ya,yb;
-    Lc = p.size[lev];  // coarse  level
-    L = p.size[lev-1]; 
-    
-    for(x=0; x<Lc; x++){
-        for(y=0;y<Lc;y++){
-            xa=2*x;ya=2*y;
-            xb=(2*x+1+L)%L;yb=(2*y+1+L)%L;
-            
-            // Apply interpolation to phi
-            phi_f[xa+ya*L]    += phi_null[xa+ya*L]*phi_c[x+y*Lc];
-            phi_f[xa+yb*L]    += phi_null[xa+yb*L]*phi_c[x+y*Lc];
-            phi_f[xb+ya*L]    += phi_null[xb+ya*L]*phi_c[x+y*Lc];
-            phi_f[xb+yb*L]    += phi_null[xb+yb*L]*phi_c[x+y*Lc]; 
-           }} 
-    //set to zero so phi = error 
-    for(x = 0; x< Lc; x++) for(y=0; y<Lc; y++) phi_c[x+y*Lc] = 0.0;
-}
-
 void f_restriction(Complex *vec_c, Complex *vec_f, Complex* phi_null, int level, params p, int quad){
     // vec_f -> vec_c using near-null vectors
     int Lf,Lc;
@@ -387,11 +334,50 @@ void f_prolongation(Complex *vec_f,Complex *vec_c, Complex* phi_null,int lev,par
             xb=(2*x+1+Lf)%Lf;yb=(2*y+1+Lf)%Lf;
             
             // Apply interpolation to phi
-            vec_f[xa+ya*Lf]    += phi_null[xa+ya*Lf]*vec_c[x+y*Lc];
+            vec_f[xa+ya*Lf]    += phi_null[xa+ya*Lf]*vec_c[x+y*Lc]; // The += is important for prolongation_phi
             vec_f[xa+yb*Lf]    += phi_null[xa+yb*Lf]*vec_c[x+y*Lc];
             vec_f[xb+ya*Lf]    += phi_null[xb+ya*Lf]*vec_c[x+y*Lc];
             vec_f[xb+yb*Lf]    += phi_null[xb+yb*Lf]*vec_c[x+y*Lc]; 
            }} 
+}
+
+void f_coarsen_null(Complex *null_c, Complex *null_f,Complex* phi_null, int level, params p, int quad){
+    // Module to project near-null vector from upper level
+    // For a given level, construt near-null[lvl] from lvl-1 quantities
+    // This module is optional. Can also just get new near-null vectors at each level
+    
+    // Restrict null_f -> null_c
+    f_restriction(null_c, null_f, phi_null, level, p, quad);
+}
+
+void f_restriction_res(Complex *res_c, Complex *res_f, Complex *phi,Complex *D, Complex* phi_null, int level, params p, int quad){
+    // Multigrid module that projects downward to coarser lattices
+    int L,Lc;
+    
+    L=p.size[level];
+    Lc=p.size[level+1];
+    Complex* rtemp = new Complex [L*L];
+    
+    for(int x=0;x<L; x++)  for(int y=0; y<L; y++)  rtemp[x+y*L]=0.0;
+    
+    // Find residue
+    f_residue(rtemp,D,phi,res_f,level,p);
+
+    // Project residue
+    f_restriction(res_c, rtemp, phi_null, level, p, quad);
+    delete[] rtemp;
+}
+
+void f_prolongate_phi(Complex *phi_f,Complex *phi_c, Complex* phi_null,int level,params p, int quad)
+{  // Prolongate error from coarse to fine. 
+    int x,y,Lc;
+    Lc = p.size[level];
+
+    // Prolongate phi_c -> phi_f
+    f_prolongation(phi_f,phi_c,phi_null,level, p, quad);
+    
+    //set to zero so phi = error 
+    for(x = 0; x< Lc; x++) for(y=0; y<Lc; y++) phi_c[x+y*Lc] = 0.0;
 }
 
 void f_write_op(Complex *phi, Complex *r, int iter, FILE* pfile2, params p){
@@ -424,7 +410,24 @@ void f_write_residue(Complex *D, Complex *phi, Complex *b, int level, int iter, 
     delete[] rtemp;
 }
 
-void f_test1_restriction_prolongation(Complex *vec, Complex *phi_null, int level, params p){
+void f_apply_D(Complex *v_out, Complex *v_in, Complex *D, int level, params p, int quad){
+    // Obtain v_out = D . v_in
+    int L,x,y;
+    
+    L=p.size[level];
+    
+    for (x=0; x<L; x++){
+        for(y=0; y<L; y++){
+            v_out[x+y*L]= (1.0)*
+                                ( D[x+y*L+1*L*L]*v_in[(x+1)%L+y*L]
+                                + D[x+y*L+2*L*L]*v_in[(x-1+L)%L+y*L] 
+                                + D[x+y*L+3*L*L]*v_in[x+((y+1)%L)*L] 
+                                + D[x+y*L+4*L*L]*v_in[x+((y-1+L)%L)*L] 
+                                + D[x+y*L+0*L*L]*v_in[x+y*L]); 
+        }}
+}
+
+void f_test1_restriction_prolongation(Complex *vec, Complex *phi_null, int level, params p, int quad){
     
     int Lf,Lc;
     int xa,xb,ya,yb,x,y;
@@ -443,31 +446,10 @@ void f_test1_restriction_prolongation(Complex *vec, Complex *phi_null, int level
     // cout<<endl;
     
     // Prolongate coarse to fine
-    for(x=0; x<Lc; x++){
-        for(y=0;y<Lc;y++){
-            xa=2*x;ya=2*y;
-            xb=(2*x+1+Lf)%Lf;yb=(2*y+1+Lf)%Lf;
-            
-            // Apply interpolation to phi
-            vec_f[xa+ya*Lf]    = phi_null[xa+ya*Lf]*vec[x+y*Lc];
-            vec_f[xa+yb*Lf]    = phi_null[xa+yb*Lf]*vec[x+y*Lc];
-            vec_f[xb+ya*Lf]    = phi_null[xb+ya*Lf]*vec[x+y*Lc];
-            vec_f[xb+yb*Lf]    = phi_null[xb+yb*Lf]*vec[x+y*Lc]; 
-           }} 
+    f_prolongation(vec_f,vec,phi_null,level+1, p, quad);
     
     // Project vector down fine to coarse (restrict)
-    for(x=0;x<Lc; x++) 
-        for(y=0; y<Lc; y++) {
-            xa=2*x;ya=2*y;
-            xb=(2*x+1+Lf)%Lf;yb=(2*y+1+Lf)%Lf;
-               
-            // Apply Restriction operation to residue
-            vec_c[x+y*Lc]=1.0*
-                          (conj(phi_null[xa+ya*Lf])*vec_f[xa+ya*Lf]
-                          +conj(phi_null[xa+yb*Lf])*vec_f[xa+yb*Lf]
-                          +conj(phi_null[xb+ya*Lf])*vec_f[xb+ya*Lf]
-                          +conj(phi_null[xb+yb*Lf])*vec_f[xb+yb*Lf]);
-        }
+    f_restriction(vec_c, vec_f, phi_null, level, p, quad);
     
     // Check if they're equal
     for(x=0;x<Lc; x++) for(y=0; y<Lc; y++) {
@@ -477,7 +459,7 @@ void f_test1_restriction_prolongation(Complex *vec, Complex *phi_null, int level
     delete[] vec_c; delete[] vec_f;
     }
 
-void f_test2a_D(Complex *vec,Complex **D,Complex *phi_null,int level, params p){
+void f_test2_D(Complex *vec,Complex **D,Complex *phi_null,int level, params p, int quad){
     // Test: (D_c - P^dagger D_f P) v_c = 0
     
     int Lf,Lc;
@@ -497,54 +479,17 @@ void f_test2a_D(Complex *vec,Complex **D,Complex *phi_null,int level, params p){
     for(x=0;x<Lc; x++) for(y=0; y<Lc; y++) { vec_c1[x+y*Lc]=0.0;vec_c2[x+y*Lc]=0.0;}
     
     // Step 1: v_f1= P vec
-    // Prolongate course to fine
-    for(x=0; x<Lc; x++){
-        for(y=0;y<Lc;y++){
-            xa=2*x;ya=2*y;
-            xb=(2*x+1+Lf)%Lf;yb=(2*y+1+Lf)%Lf;
-            
-            // Apply interpolation to phi
-            vec_f1[xa+ya*Lf]    = phi_null[xa+ya*Lf]*vec[x+y*Lc];
-            vec_f1[xa+yb*Lf]    = phi_null[xa+yb*Lf]*vec[x+y*Lc];
-            vec_f1[xb+ya*Lf]    = phi_null[xb+ya*Lf]*vec[x+y*Lc];
-            vec_f1[xb+yb*Lf]    = phi_null[xb+yb*Lf]*vec[x+y*Lc]; 
-           }} 
+    f_prolongation(vec_f1,vec,phi_null,level+1, p, quad);
     
     // Step 2: v_f2 = D_f v_f1
-    for (x=0; x<Lf; x++){
-        for(y=0; y<Lf; y++){
-            vec_f2[x+y*Lf]= (1.0)*
-                                ( D[level][x+y*Lf+1*Lf*Lf]*vec_f1[(x+1)%Lf+y*Lf]
-                                + D[level][x+y*Lf+2*Lf*Lf]*vec_f1[(x-1+Lf)%Lf+y*Lf] 
-                                + D[level][x+y*Lf+3*Lf*Lf]*vec_f1[x+((y+1)%Lf)*Lf] 
-                                + D[level][x+y*Lf+4*Lf*Lf]*vec_f1[x+((y-1+Lf)%Lf)*Lf] 
-                                + D[level][x+y*Lf+0*Lf*Lf]*vec_f1[x+y*Lf]); 
-        }}
+    f_apply_D(vec_f2,vec_f1,D[level],level,p, quad);
 
     // Step 3: v_c1 = Pdagger v_f2 
-    // Project vector down (restrict)
-    for(x=0;x<Lc; x++) 
-        for(y=0; y<Lc; y++) {
-            xa=2*x;ya=2*y;
-            xb=(2*x+1+Lf)%Lf;yb=(2*y+1+Lf)%Lf;
-            // Convention: fine to coarse, use P_dagger
-            vec_c1[x+y*Lc]=1.0*
-                          (conj(phi_null[xa+ya*Lf])*vec_f2[xa+ya*Lf]
-                          +conj(phi_null[xa+yb*Lf])*vec_f2[xa+yb*Lf]
-                          +conj(phi_null[xb+ya*Lf])*vec_f2[xb+ya*Lf]
-                          +conj(phi_null[xb+yb*Lf])*vec_f2[xb+yb*Lf]);
-        }
-
-   // Step 4: v_c2=D_c vec
-    for (x=0; x<Lc; x++){
-        for(y=0; y<Lc; y++){
-            vec_c2[x+y*Lc]= (1.0)*
-                                ( D[level+1][x+y*Lc+1*Lc*Lc]*vec[(x+1)%Lc+y*Lc]
-                                + D[level+1][x+y*Lc+2*Lc*Lc]*vec[(x-1+Lc)%Lc+y*Lc] 
-                                + D[level+1][x+y*Lc+3*Lc*Lc]*vec[x+((y+1)%Lc)*Lc] 
-                                + D[level+1][x+y*Lc+4*Lc*Lc]*vec[x+((y-1+Lc)%Lc)*Lc] 
-                                + D[level+1][x+y*Lc+0*Lc*Lc]*vec[x+y*Lc]);
-        }}
+    f_restriction(vec_c1, vec_f2, phi_null, level, p, quad);
+    
+    // Step 4: v_c2=D_c vec
+    f_apply_D(vec_c2,vec,D[level+1],level+1,p, quad);
+   
     // Check if they're equal
     for(x=0;x<Lc; x++) for(y=0; y<Lc; y++) {
         if((fabs(real(vec_c1[x+y*Lc])-real(vec_c2[x+y*Lc])) > Epsilon) | (fabs(imag(vec_c1[x+y*Lc])-imag(vec_c2[x+y*Lc])) > Epsilon)){
@@ -553,81 +498,6 @@ void f_test2a_D(Complex *vec,Complex **D,Complex *phi_null,int level, params p){
     delete[] vec_f1; delete[] vec_f2; delete[] vec_c1; delete[] vec_c2;
     }
     
-void f_test2b_D(Complex *vec,Complex **D,Complex *phi_null,int level, params p){
-    // Test: (D_f - P D_c P^dagger) v_f = 0
-    
-    int Lf,Lc;
-    int xa,xb,ya,yb,x,y;
-    double Epsilon=1.0e-12;
-
-    Lf=p.size[level];
-    Lc=p.size[level+1];
-    
-    Complex* vec_c1= new Complex [Lc*Lc];
-    Complex* vec_c2= new Complex [Lc*Lc];
-    Complex* vec_f1= new Complex [Lf*Lf];
-    Complex* vec_f2= new Complex [Lf*Lf];
-    
-    // Initialize
-    for(x=0;x<Lf; x++) for(y=0; y<Lf; y++) { vec_f1[x+y*Lf]=0.0;vec_f2[x+y*Lf]=0.0;}
-    for(x=0;x<Lc; x++) for(y=0; y<Lc; y++) { vec_c1[x+y*Lc]=0.0;vec_c2[x+y*Lc]=0.0;}
-
-    // Step 1: v_c1 = Pdagger vec 
-    // Project vector down (restrict)
-    for(x=0;x<Lc; x++) 
-        for(y=0; y<Lc; y++) {
-            xa=2*x;ya=2*y;
-            xb=(2*x+1+Lf)%Lf;yb=(2*y+1+Lf)%Lf;
-            // Convention: fine to coarse, use P_dagger
-            vec_c1[x+y*Lc]=1.0*
-                          (conj(phi_null[xa+ya*Lf])*vec[xa+ya*Lf]
-                          +conj(phi_null[xa+yb*Lf])*vec[xa+yb*Lf]
-                          +conj(phi_null[xb+ya*Lf])*vec[xb+ya*Lf]
-                          +conj(phi_null[xb+yb*Lf])*vec[xb+yb*Lf]);
-        }
-    // Step 2: v_c2 = D_c v_c1
-    for (x=0; x<Lc; x++){
-        for(y=0; y<Lc; y++){
-            vec_c2[x+y*Lc]= (1.0)*
-                                ( D[level+1][x+y*Lc+1*Lc*Lc]*vec_c1[(x+1)%Lc+y*Lc]
-                                + D[level+1][x+y*Lc+2*Lc*Lc]*vec_c1[(x-1+Lc)%Lc+y*Lc] 
-                                + D[level+1][x+y*Lc+3*Lc*Lc]*vec_c1[x+((y+1)%Lc)*Lc] 
-                                + D[level+1][x+y*Lc+4*Lc*Lc]*vec_c1[x+((y-1+Lc)%Lc)*Lc] 
-                                + D[level+1][x+y*Lc+0*Lc*Lc]*vec_c1[x+y*Lc]);
-        }}
-     
-    // Step 3: P v_c2 = v_f1
-    // Prolongate course to fine
-    for(x=0; x<Lc; x++){
-        for(y=0;y<Lc;y++){
-            xa=2*x;ya=2*y;
-            xb=(2*x+1+Lf)%Lf;yb=(2*y+1+Lf)%Lf;
-            
-            // Apply interpolation to phi
-            vec_f2[xa+ya*Lf]    = phi_null[xa+ya*Lf]*vec_c2[x+y*Lc];
-            vec_f2[xa+yb*Lf]    = phi_null[xa+yb*Lf]*vec_c2[x+y*Lc];
-            vec_f2[xb+ya*Lf]    = phi_null[xb+ya*Lf]*vec_c2[x+y*Lc];
-            vec_f2[xb+yb*Lf]    = phi_null[xb+yb*Lf]*vec_c2[x+y*Lc]; 
-           }} 
-    
-   // Step 4: v_f2=D_f vec
-    for (x=0; x<Lf; x++){
-        for(y=0; y<Lf; y++){
-            vec_f1[x+y*Lf]= (1.0)*
-                                ( D[level][x+y*Lf+1*Lf*Lf]*vec[(x+1)%Lf+y*Lf]
-                                + D[level][x+y*Lf+2*Lf*Lf]*vec[(x-1+Lf)%Lf+y*Lf] 
-                                + D[level][x+y*Lf+3*Lf*Lf]*vec[x+((y+1)%Lf)*Lf] 
-                                + D[level][x+y*Lf+4*Lf*Lf]*vec[x+((y-1+Lf)%Lf)*Lf] 
-                                + D[level][x+y*Lf+0*Lf*Lf]*vec[x+y*Lf]); 
-        }}
-    // Check if they're equal
-    for(x=0;x<Lf; x++) for(y=0; y<Lf; y++) {
-        if((fabs(real(vec_f1[x+y*Lf])-real(vec_f2[x+y*Lf])) > Epsilon) | (fabs(imag(vec_f1[x+y*Lf])-imag(vec_f2[x+y*Lf])) > Epsilon)){
-            printf("%d, %d, Diff %f, \t %f+i %f, %f+i %f\n",x,y,abs(vec_f1[x+y*Lf]-vec_f2[x+y*Lf]),real(vec_f1[x+y*Lf]),imag(vec_f1[x+y*Lf]),real(vec_f2[x+y*Lf]),imag(vec_f2[x+y*Lf]));
-            }}
-    delete[] vec_f1; delete[] vec_f2; delete[] vec_c1; delete[] vec_c2;
-    }
-
 void f_test3_hermiticity(Complex **D,params p){
     // Test if all D's are Hermitian
     Complex a1,a2,a3,a4,a0;
@@ -687,20 +557,6 @@ void f_test4_hermiticity_full(Complex *vec, Complex *D,int level, params p){
         for(y=0; y<Lf; y++){
             vec_f2[x+y*Lf]= conj(vec[x+y*Lf])*vec_f1[x+y*Lf];
             a1+=vec_f2[x+y*Lf];}}
-    
-    // // Full
-    // for (x=0; x<Lf; x++){
-    //     for(y=0; y<Lf; y++){
-    //         vec_f2[x+y*Lf]= (1.0)*
-    //                             ( 
-    //                              conj(vec[x+y*Lf])* D[x+y*Lf +1*Lf*Lf]*vec[(x+1)%Lf+y*Lf]
-    //                             +conj(vec[x+y*Lf])* D[x+y*Lf +2*Lf*Lf]*vec[(x-1+Lf)%Lf+y*Lf] 
-    //                             +conj(vec[x+y*Lf])* D[x+y*Lf +3*Lf*Lf]*vec[x+((y+1)%Lf)*Lf] 
-    //                             +conj(vec[x+y*Lf])* D[x+y*Lf +4*Lf*Lf]*vec[x+((y-1+Lf)%Lf)*Lf] 
-    //                             +conj(vec[x+y*Lf])* D[x+y*Lf +0*Lf*Lf]*vec[x+y*Lf]
-    //                              ); 
-    //         // vec_f2[x+y*Lf]= conj(vec[x+y*Lf])*vec_f1[x+y*Lf];
-    //         a1+=vec_f2[x+y*Lf];}}
     
     if (fabs(imag(a1))>Epsilon){
     // if (1>0){
@@ -816,7 +672,7 @@ int main (int argc, char *argv[])
    //              fprintf(pfile4,"%f+i%f\n",real(U[0][x+L*y+k*L*L]),imag(U[0][x+L*y+k*L*L]));}}}
    //  fclose(pfile4);
    
-    // Read phases from file
+    // // Read phases from file
     // double re,im;
     // FILE* pfile5 = fopen ("Uphases.txt","r"); 
     // for(int x=0; x<L; x++){ 
@@ -884,7 +740,7 @@ int main (int argc, char *argv[])
     // printf("Random float %f, %f \n",dist(gen),dist(gen));
     
     // Checks //
-    // // 1. Projection tests
+    // 1. Projection tests
     printf("\nTest1\n");
     for(lvl=0;lvl<p.nlevels;lvl++){
         int x,y,lc;
@@ -892,35 +748,21 @@ int main (int argc, char *argv[])
         lc=p.size[lvl+1];
         Complex* vec = new Complex [lc*lc];
         for(x=0;x<lc; x++) for(y=0; y<lc; y++) vec[x+y*lc]=complex<double>(dist(gen),dist(gen));
-        f_test1_restriction_prolongation(vec,phi_null[lvl],lvl, p);
+        f_test1_restriction_prolongation(vec,phi_null[lvl],lvl, p, quad);
         delete[] vec;
     }
     
-    // 2a. D_fine vs D_coarse test
-    printf("\nTest2a\n");
+    // 2. D_fine vs D_coarse test
+    printf("\nTest2\n");
     for(lvl=0;lvl<p.nlevels;lvl++){
         int x,y,lc;
         printf("lvl %d\n", lvl);
         lc=p.size[lvl+1];
         Complex* vec = new Complex [lc*lc];
-        for(x=0;x<lc; x++) for(y=0; y<lc; y++) vec[x+y*lc]=1.0;
         for(x=0;x<lc; x++) for(y=0; y<lc; y++) vec[x+y*lc]=complex<double>(dist(gen),dist(gen));
-        f_test2a_D(vec,D,phi_null[lvl],lvl, p);
+        f_test2_D(vec,D,phi_null[lvl],lvl, p, quad);
         delete[] vec;
         } 
-    
-    // // 2b. D_fine vs D_coarse test
-    // printf("\nTest2b\n");
-    // for(lvl=0;lvl<p.nlevels;lvl++){
-    //     int x,y,lf;
-    //     printf("lvl %d\n", lvl);
-    //     lf=p.size[lvl];
-    //     Complex* vec = new Complex [lf*lf];
-    //     for(x=0;x<lf; x++) for(y=0; y<lf; y++) vec[x+y*lf]=1.0;
-    //     // for(x=0;x<lf; x++) for(y=0; y<lf; y++) vec[x+y*lf]=complex<double>(dist(gen),dist(gen));
-    //     f_test2b_D(vec,D,phi_null[lvl],lvl, p);
-    //     delete[] vec;
-    //     }
     
     // 3. Hermiticity
     printf("\nTest3\n");
@@ -938,7 +780,6 @@ int main (int argc, char *argv[])
         // printf("%f+i %f",real(vec[2]),imag(vec[2]));
         for(x=0;x<lf; x++) for(y=0; y<lf; y++) vec[x+y*lf]=complex<double>(0,1);
         for(x=0;x<lf; x++) for(y=0; y<lf; y++) vec[x+y*lf]=complex<double>(dist(gen),dist(gen));
-        // for(x=0;x<lf; x++) for(y=0; y<lf; y++) printf("%f +i %f\n",real(vec[x+y*lf]),imag(vec[x+y*lf]));
         f_test4_hermiticity_full(vec,D[lvl],lvl, p);
         delete[] vec;
     }
@@ -958,14 +799,14 @@ int main (int argc, char *argv[])
             for(lvl=0;lvl<p.nlevels;lvl++){
                 relax(D[lvl],phi[lvl],r[lvl], lvl, num_iters,p,gs_flag); // Perform Gauss-Seidel
                 //Project to coarse lattice 
-                f_projection(r[lvl+1],r[lvl],phi[lvl],D[lvl], phi_null[lvl], lvl,p,quad); 
+                f_restriction_res(r[lvl+1],r[lvl],phi[lvl],D[lvl], phi_null[lvl], lvl,p,quad); 
                 // printf("\nlvl %d, %d\n",lvl,p.size[lvl]);
             }
         // exit(1)
             // come up: coarse -> fine
             for(lvl=p.nlevels;lvl>=0;lvl--){
                 relax(D[lvl],phi[lvl],r[lvl], lvl, num_iters,p,gs_flag); // Perform Gauss-Seidel
-                if(lvl>0) f_interpolate(phi[lvl-1],phi[lvl], phi_null[lvl-1], lvl,p,quad);
+                if(lvl>0) f_prolongate_phi(phi[lvl-1],phi[lvl], phi_null[lvl-1], lvl,p,quad);
                 }
         }
         // No Multi-grid, just Relaxation
