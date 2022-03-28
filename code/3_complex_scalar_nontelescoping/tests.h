@@ -1,0 +1,185 @@
+#pragma once
+// Tests 
+void f_test1_restriction_prolongation(VArr1D vec, MArr1D phi_null, int level, params p, int quad){
+    // Test: vec_c - P P^dagger vec = 0
+    
+    int Lf,Lc,nf,nc,d1;
+    int xa,xb,ya,yb,x,y;
+    double Epsilon=1.0e-12;
+    Complex norm1,norm2;
+    
+    Lf=p.size[level];
+    Lc=p.size[level+1];
+    nf=p.n_dof[level];
+    nc=p.n_dof[level+1];
+    
+    VArr1D vec_c(Lc*Lc), vec_f(Lf*Lf);
+    
+    for(int i=0; i< Lf*Lf; i++) {
+        vec_f(i)=ColorVector(nf);
+        for(d1=0;d1<nf;d1++) vec_f(i)(d1)=0.0;
+    }
+    for(int i=0; i< Lc*Lc; i++) {
+        vec_c(i)=ColorVector(nc);
+        for(d1=0;d1<nc;d1++) vec_c(i)(d1)=0.0;
+    }   
+    printf("Test1\n");
+    
+    // for(x=0;x<Lc; x++) for(y=0; y<Lc; y++) {
+    //     cout<< "mid "<<(phi_null(x+y*Lc).adjoint() * phi_null(x+y*Lc))<<endl;
+    // }
+    
+    // for(x=0;x<Lc; x++) for(y=0; y<Lc; y++) {
+    //     for(d1=0;d1<nc;d1++){ 
+    //         // cout<<phi_null(x+y*Lc).rows()<<"\t"<<phi_null(x+y*Lc).cols()<<endl;
+    //         // printf("%d\n",(phi_null(x+y*Lc).adjoint() * phi_null(x+y*Lc)).cols());
+    //         norm1=(phi_null(x+y*Lc).row(d1).adjoint() * phi_null(x+y*Lc).row(d1))(0,0);
+    //         norm2=(phi_null(x+y*Lc).row(d1).dot(phi_null(x+y*Lc).row(d1)));
+    //         // printf("%d,%d\t %f+i%f\t\t",x,y,real(norm1),imag(norm1));
+    //         // printf("%d,%d\t %f+i%f\n",x,y,real(norm2),imag(norm2));
+    //     }}
+    
+    // Prolongate coarse to fine
+    f_prolongation(vec_f,vec,phi_null,level+1, p, quad);
+    
+    // Project vector down fine to coarse (restrict)
+    f_restriction(vec_c, vec_f, phi_null, level, p, quad);
+    
+    // Check if they're equal
+    for(x=0;x<Lc; x++) for(y=0; y<Lc; y++) for(d1=0; d1<nc; d1++) {
+        if((fabs(real(vec_c(x+y*Lc)(d1))-real(vec(x+y*Lc)(d1))) > Epsilon) | (fabs(imag(vec_c(x+y*Lc)(d1))-imag(vec(x+y*Lc)(d1))) > Epsilon)){
+        // if(1>0){
+            printf("%d, %d, Diff %e, \t %f+i %f, %f+i %f\n",x,y,abs(vec(x+y*Lc)(d1)-vec_c(x+y*Lc)(d1)),real(vec(x+y*Lc)(d1)),imag(vec(x+y*Lc)(d1)),real(vec_c(x+y*Lc)(d1)),imag(vec_c(x+y*Lc)(d1)));
+            }}
+    }
+
+void f_test2_D(VArr1D vec,MArr2D* D,MArr1D phi_null,int level, params p, int quad){
+    // Test: (D_c - P^dagger D_f P) v_c = 0
+    
+    int Lf,Lc,nf,nc,d1;
+    int xa,xb,ya,yb,x,y;
+    double Epsilon=1.0e-12;
+
+    Lf=p.size[level];
+    Lc=p.size[level+1];
+    
+    Lf=p.size[level];
+    Lc=p.size[level+1];
+    nf=p.n_dof[level];
+    nc=p.n_dof[level+1];
+    
+    VArr1D vec_c1(Lc*Lc), vec_c2(Lc*Lc), vec_f1(Lf*Lf), vec_f2(Lf*Lf);
+    
+    for(int i=0; i< Lf*Lf; i++) {
+        vec_f1(i)=ColorVector(nf);
+        vec_f2(i)=ColorVector(nf);
+        for(d1=0;d1<nf;d1++) { vec_f1(i)(d1)=0.0;vec_f2(i)(d1)=0.0;}
+    }
+    for(int i=0; i< Lc*Lc; i++) {
+        vec_c1(i)=ColorVector(nc);
+        vec_c2(i)=ColorVector(nc);
+        for(d1=0;d1<nc;d1++) { vec_c1(i)(d1)=0.0; vec_c2(i)(d1)=0.0; }
+    }   
+    
+    printf("Test2\t");
+    
+    // Step 1: v_f1= P vec
+    f_prolongation(vec_f1,vec,phi_null,level+1, p, quad);
+    
+    // Step 2: v_f2 = D_f v_f1
+    f_apply_D(vec_f2,vec_f1,D[level],level,p, quad);
+
+    // Step 3: v_c1 = Pdagger v_f2 
+    f_restriction(vec_c1, vec_f2, phi_null, level, p, quad);
+    
+    // Step 4: v_c2=D_c vec
+    f_apply_D(vec_c2,vec,D[level+1],level+1,p, quad);
+   
+    // Check if they're equal
+    for(x=0;x<Lc; x++) for(y=0; y<Lc; y++) for(d1=0; d1<nc; d1++) {
+        if((fabs(real(vec_c1(x+y*Lc)(d1))-real(vec_c2(x+y*Lc)(d1))) > Epsilon) | (fabs(imag(vec_c1(x+y*Lc)(d1))-imag(vec_c2(x+y*Lc)(d1))) > Epsilon)){
+        // if(1>0){
+            printf("%d, %d, Diff %e, \t %f+i %f, %f+i %f\n",x,y,abs(vec_c1(x+y*Lc)(d1)-vec_c2(x+y*Lc)(d1)),real(vec_c1(x+y*Lc)(d1)),imag(vec_c1(x+y*Lc)(d1)),real(vec_c2(x+y*Lc)(d1)),imag(vec_c2(x+y*Lc)(d1)));
+            }}
+    }
+
+void f_test3_hermiticity(MArr2D D, int level, params p){
+    // Test if all D's are Hermitian
+    // D(x,x+mu) = D^*(x+u,x) 
+    Complex a1,a2,a3,a4,a5,a6; 
+    int l,n,d1,d2;
+    double Epsilon=1.0e-12;
+    
+    l=p.size[level];
+    n=p.n_dof[level];
+    printf("Test3\t");
+    
+    ColorMatrix m0(n,n), m1(n,n), m2(n,n), m3(n,n), m4(n,n);
+    // printf("l %d, n %d\n",l,n);
+    
+    for(int x=0;x<l; x++) for(int y=0; y<l; y++) { 
+        m1=D(x+l*y                ,1);
+        m2=D((x+1)%l+l*y    ,2).adjoint();
+        m3=D(x+l*y                ,3);
+        m4=D(x+(((y+1)%l)*l),4).adjoint();
+        m0=D(x+l*y                ,0);
+
+        for (d1=0; d1< n; d1++) for(d2=0;d2<n;d2++){
+            a1=m1(d1,d2);a2=m2(d1,d2);
+            a3=m3(d1,d2);a4=m4(d1,d2);
+            a5=m0(d1,d2);
+            a6=m0.adjoint()(d1,d2);
+            
+            if ((fabs(real(a1)-real(a2))>Epsilon) | (fabs(imag(a1)-imag(a2))>Epsilon)){
+                printf("%d,%d-> %d,%d\t",x,y,(x+1)%l,y);
+                printf("Diff:%20.20e\t %20.20e+i %20.20e, %20.20e+i %20.20e\n",abs(a1)-abs(a2),real(a1),imag(a1),real(a2),imag(a2));}
+
+            if ((fabs(real(a3)-real(a4))>Epsilon) | (fabs(imag(a3)-imag(a4))>Epsilon)){
+                printf("%d,%d-> %d,%d\t",x,y,x,(y+1)%l);
+                printf("Diff:%20.20e\t %20.20e+i %20.20e, %20.20e+i %20.20e\n",abs(a3)-abs(a4),real(a3),imag(a3),real(a4),imag(a4));}
+
+            if ((fabs(real(a5)-real(a6))>Epsilon) | (fabs(imag(a5)-imag(a6))>Epsilon)){// Diagonal matrix must be Hermitian
+            // if(1>0){
+                printf("%d,%d-> %d,%d\t",x,y,x,(y+1)%l);
+                printf("Diagonal Diff:%20.20e\t %20.20e+i %20.20e, %20.20e+i %20.20e\n",abs(a5)-abs(a6),real(a5),imag(a5),real(a6),imag(a6));}
+                
+            // if (fabs(imag(a0))>Epsilon){// Diagonal elements must be real
+                // printf("Diagonal %d,%d\t%20.20e+i %20.20e\n",x,y,real(a0),imag(a0));}
+        }
+    }
+}
+             
+void f_test4_hermiticity_full(VArr1D vec, MArr2D D,int level, params p, int quad){
+    // Test if all D's are Hermitian i.e. vec^dagger . D . vec = 0 
+    // < v_c | D_c | v_c > = real 
+    
+    int Lf,x,y,nf,d1;
+    double Epsilon=1.0e-12;
+    
+    Lf=p.size[level];
+    nf=p.n_dof[level];
+    
+    VArr1D vec_f1(Lf*Lf), vec_f2(Lf*Lf);
+    for(int i=0; i< Lf*Lf; i++) {
+        vec_f1(i)=ColorVector(nf);
+        vec_f2(i)=ColorVector(nf);
+        for(d1=0;d1<nf;d1++) { vec_f1(i)(d1)=0.0;vec_f2(i)(d1)=0.0;}
+    }
+    
+    Complex a1(0,0);
+    
+    printf("Test4\t");
+    // Step 1: v_1=D_f vec
+    f_apply_D(vec_f1,vec,D,level,p, quad);
+    
+    // Step 2: vec^dagger . v_1 = vec^dagger . D . vec
+    for (x=0; x<Lf; x++){
+        for(y=0; y<Lf; y++){
+            a1+=(vec(x+y*Lf).adjoint()*vec_f1(x+y*Lf))(0,0);
+        }}
+    if (fabs(imag(a1))>Epsilon){
+    // if (1>0){
+        printf("Answer %f+i %f\n",real(a1),imag(a1));
+    }
+}
+
