@@ -4,7 +4,7 @@ void f_test1_restriction_prolongation(VArr1D vec, MArr1D phi_null, int level, pa
     // Test: vec_c - P P^dagger vec = 0
     
     int Lf,Lc,nf,nc,d1;
-    int xa,xb,ya,yb,x,y;
+    int x,y;
     double Epsilon=1.0e-12;
     Complex norm1,norm2;
     
@@ -57,7 +57,7 @@ void f_test2_D(VArr1D vec,MArr2D* D,MArr1D phi_null,int level, params p, int qua
     // Test: (D_c - P^dagger D_f P) v_c = 0
     
     int Lf,Lc,nf,nc,d1;
-    int xa,xb,ya,yb,x,y;
+    int x,y;
     double Epsilon=1.0e-12;
 
     Lf=p.size[level];

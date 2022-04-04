@@ -20,7 +20,8 @@ typedef struct{
     int nlevels;
     double m; //mass
     int size[20]; // Lattice size 
-    int n_dof[20]; // Degrees of freedome per site
+    int n_dof[20]; // Degrees of freedom per site
+    int block_x,block_y;
     double scale[20]; // scale factor 
     double a[20]; // Lattice spacing 
 } params ;
@@ -227,56 +228,95 @@ double f_g_norm(VArr1D vec, int level, int rescale, params p){
 void f_block_norm(VArr1D vec, int level, params p){
     // Compute norm in block and normalize each block and store in single near-null vector
     double norm;
-    int xa,xb,ya,yb,x,y,d,L,Lc,n;
+    int d,L,Lc,n;
+    int x1,y1,xc,yc,xf,yf,xbase,ybase;
+    
     L = p.size[level];
     Lc= p.size[level+1];
-    
     n=p.n_dof[level];
-     
-    for(x=0; x<Lc; x++) 
-        for(y=0; y<Lc; y++) {
-            xa=2*x;ya=2*y;
-            xb=(2*x+1+L)%L;yb=(2*y+1+L)%L;
-
-            norm=sqrt(vec(xa+ya*L).squaredNorm()
-                     +vec(xa+yb*L).squaredNorm()
-                     +vec(xb+ya*L).squaredNorm()
-                     +vec(xb+yb*L).squaredNorm());
-            // printf("Norm %f\n",norm);
-            if (isnan(norm))  { 
-                printf("Inside block_norm: Norm %.20f\n",norm);
-                cout<<vec(xa+ya*L)<<endl;
-                exit(1);
+    
+    for(xc=0; xc<Lc; xc++) for(yc=0; yc<Lc; yc++) {
+        xbase=p.block_x * xc;
+        ybase=p.block_y * yc;
+        norm=0.0;
+        
+        // Compute norm by summing over block
+        for(x1=0; x1<p.block_x; x1++) for(y1=0; y1<p.block_y; y1++){
+            xf=(xbase+x1)%L;
+            yf=(ybase+y1)%L;
+            norm+=vec(xf+yf*L).squaredNorm(); 
             }
-            else if (norm < 1e-40) {
-                printf("Inside block_norm: Very small Norm %25.20e\n",norm);
-                exit(1); }
-            
-            vec(xa+ya*L)/=norm;
-            vec(xa+yb*L)/=norm;
-            vec(xb+ya*L)/=norm;
-            vec(xb+yb*L)/=norm;
+        norm=sqrt(norm);
+       
+        /* Ensure norm is not nan or too small */
+        // printf("Norm %f\n",norm);
+        if (isnan(norm))  { 
+            printf("Inside block_norm: Norm %.20f\n",norm);
+            cout<<vec(xf+yf*L)<<endl;
+            exit(1);
+        }
+        else if (norm < 1e-40) {
+            printf("Inside block_norm: Very small Norm %25.20e\n",norm);
+            exit(1); }
+        
+        // Normalize:  Divide each value in block by norm to normalize 
+        for(x1=0; x1<p.block_x; x1++) for(y1=0; y1<p.block_y; y1++){
+            xf=(xbase+x1)%L;
+            yf=(ybase+y1)%L;
+            vec(xf+yf*L)/=norm;
+        }
     }
+    
+    
+//         /// ## need to delete ##     
+//             xa=2*x;ya=2*y;
+//             xb=(2*x+1+L)%L;yb=(2*y+1+L)%L;
+
+//             norm=sqrt(vec(xa+ya*L).squaredNorm()
+//                      +vec(xa+yb*L).squaredNorm()
+//                      +vec(xb+ya*L).squaredNorm()
+//                      +vec(xb+yb*L).squaredNorm());
+           
+//             vec(xa+ya*L)/=norm;
+//             vec(xa+yb*L)/=norm;
+//             vec(xb+ya*L)/=norm;
+//             vec(xb+yb*L)/=norm;
+//     }
 }
 
 void f_check_block_norm(VArr1D vec, int level, params p){
     // Compute norm in block and normalize each block and store in single near-null vector
     double norm;
-    int xa,xb,ya,yb,x,y,d,L,Lc,n;
+    
+    int d,L,Lc,n;
+    int x1,y1,xc,yc,xf,yf,xbase,ybase;
+    
     L = p.size[level];
     Lc= p.size[level+1];
-    
     n=p.n_dof[level];
-     
-    for(x=0; x<Lc; x++) 
-        for(y=0; y<Lc; y++) {
-            xa=2*x;ya=2*y;
-            xb=(2*x+1+L)%L;yb=(2*y+1+L)%L;
+    
+    for(xc=0; xc<Lc; xc++) for(yc=0; yc<Lc; yc++) {
+        xbase=p.block_x * xc;
+        ybase=p.block_y * yc;
+        norm=0.0;
+        
+        // Compute norm by summing over block
+        for(x1=0; x1<p.block_x; x1++) for(y1=0; y1<p.block_y; y1++){
+            xf=(xbase+x1)%L;
+            yf=(ybase+y1)%L;
+            norm+=vec(xf+yf*L).squaredNorm(); 
+            }
+        norm=sqrt(norm);
+        
+//     for(x=0; x<Lc; x++) 
+//         for(y=0; y<Lc; y++) {
+//             xa=2*x;ya=2*y;
+//             xb=(2*x+1+L)%L;yb=(2*y+1+L)%L;
 
-            norm=sqrt(vec(xa+ya*L).squaredNorm()
-                     +vec(xa+yb*L).squaredNorm()
-                     +vec(xb+ya*L).squaredNorm()
-                     +vec(xb+yb*L).squaredNorm());
+//             norm=sqrt(vec(xa+ya*L).squaredNorm()
+//                      +vec(xa+yb*L).squaredNorm()
+//                      +vec(xb+ya*L).squaredNorm()
+//                      +vec(xb+yb*L).squaredNorm());
             // printf("Norm %f\n",norm);
             if (isnan(norm))  {
                 printf("Inside block_norm: Norm %.20f\n",norm);
@@ -289,32 +329,36 @@ void f_check_vec_norm(VArr1D vec, int level, params p, int quit_flag){
     // Check if the norm of a vector is null or very small
     Complex dot,ans;
     double norm;
-    int xa,xb,ya,yb,x,y,L,Lc,d1,d2,d,n,nc;
+    int d,L,Lc,n,nc;
+    int x1,y1,xc,yc,xf,yf,xbase,ybase;
     
     L=p.size[level];
     Lc=p.size[level+1];
     n=p.n_dof[level];
     nc=p.n_dof[level+1];
     
-    for(x=0;x<Lc;x++) for(y=0;y<Lc;y++) for(d1=0;d1<nc;d1++)  {
-        xa=2*x;ya=2*y;
-        xb=(2*x+1+L)%L;yb=(2*y+1+L)%L;
+    
+    for(xc=0; xc<Lc; xc++) for(yc=0; yc<Lc; yc++)  {
+        xbase=p.block_x * xc;
+        ybase=p.block_y * yc;
+        norm=0.0;
         
-        norm= abs(vec(xa+ya*L).squaredNorm())
-            + abs(vec(xa+yb*L).squaredNorm())
-            + abs(vec(xb+ya*L).squaredNorm())
-            + abs(vec(xb+yb*L).squaredNorm());
+        // Compute norm by summing over block
+        for(x1=0; x1<p.block_x; x1++) for(y1=0; y1<p.block_y; y1++){
+            xf=(xbase+x1)%L;
+            yf=(ybase+y1)%L;
+            norm+=vec(xf+yf*L).squaredNorm(); 
+            }
+        norm=sqrt(norm);    
         
         if (isnan(norm)){ 
             printf("Vec: Norm %.20f\n",norm);
-            // printf("d2 %d\n",d2);
-            // cout<<vec(xa+ya*L).row(d1)<<":\t"<<vec(xa+yb*L).row(d1)<<":\t"<<vec(xb+ya*L).row(d1)<<":\t"<<vec(xb+yb*L).row(d1)<<endl;
-            cout<<vec(xa+ya*L)<<":\t"<<vec(xa+yb*L)<<":\t"<<vec(xb+ya*L)<<":\t"<<vec(xb+yb*L)<<endl;
+            cout<<vec(xf+yf*L)<<endl;
             if (quit_flag==1) exit(1);}
         
         if (norm<1e-10){ 
             printf("Vec Norm %.20f\n",norm);
-            cout<<vec(xa+ya*L)<<":\n"<<vec(xa+yb*L)<<":\t"<<vec(xb+ya*L)<<":\t"<<vec(xb+yb*L)<<endl;
+            cout<<vec(xf+yf*L)<<endl;
             if (quit_flag==1) exit(1);}
             }
         printf("Vector norm pass\n");
@@ -324,7 +368,8 @@ void f_check_null_norm(MArr1D null, int level, params p, int quit_flag){
     // Check if norm of each near-null vector is nan or small
     Complex dot,ans;
     double norm;
-    int xa,xb,ya,yb,x,y,L,Lc,d1,d2,d,n,nc;
+    int d,L,Lc,n,nc,d1;
+    int x1,y1,xc,yc,xf,yf,xbase,ybase;
     
     L=p.size[level];
     Lc=p.size[level+1];
@@ -332,27 +377,55 @@ void f_check_null_norm(MArr1D null, int level, params p, int quit_flag){
     nc=p.n_dof[level+1];
     
     // Check nans in null
-    for(x=0;x<Lc;x++) for(y=0;y<Lc;y++) for(d1=0;d1<nc;d1++)  {
-        xa=2*x;ya=2*y;
-        xb=(2*x+1+L)%L;yb=(2*y+1+L)%L;
+    
+        for(xc=0; xc<Lc; xc++) for(yc=0; yc<Lc; yc++) for(d1=0;d1<nc;d1++){
+        xbase=p.block_x * xc;
+        ybase=p.block_y * yc;
+        norm=0.0;
         
-        norm=abs(null(xa+ya*L).row(d1).squaredNorm())
-            + abs(null(xa+yb*L).row(d1).squaredNorm())
-            + abs(null(xb+ya*L).row(d1).squaredNorm())
-            + abs(null(xb+yb*L).row(d1).squaredNorm());
+        // Compute norm by summing over block
+        for(x1=0; x1<p.block_x; x1++) for(y1=0; y1<p.block_y; y1++){
+            xf=(xbase+x1)%L;
+            yf=(ybase+y1)%L;
+            norm+=abs(null(xf+yf*L).row(d1).squaredNorm()); 
+            }
+        norm=sqrt(norm);   
         
         if (isnan(norm))  { 
             printf("Check null: Norm %.20f\n",norm);
             printf("level %d d1 %d\n",level,d1);
-            cout<<null(xa+ya*L).row(d1)<<":\t"<<null(xa+yb*L).row(d1)<<":\t"<<null(xb+ya*L).row(d1)<<":\t"<<null(xb+yb*L).row(d1)<<endl;
+            cout<<null(xf+yf*L).row(d1)<<endl;
             if (quit_flag==1) exit(1);}
         
         if (norm<1e-10)  { 
             printf("Check null: Norm %.20f\n",norm);
             printf("level %d d1 %d\n",level,d1);
-            cout<<null(xa+ya*L).row(d1)<<":\t"<<null(xa+yb*L).row(d1)<<":\t"<<null(xb+ya*L).row(d1)<<":\t"<<null(xb+yb*L).row(d1)<<endl;
+            cout<<null(xf+yf*L).row(d1)<<endl;
             if (quit_flag==1) exit(1);}
             }
+
+    
+//     for(x=0;x<Lc;x++) for(y=0;y<Lc;y++) for(d1=0;d1<nc;d1++)  {
+//         xa=2*x;ya=2*y;
+//         xb=(2*x+1+L)%L;yb=(2*y+1+L)%L;
+        
+//         norm=abs(null(xa+ya*L).row(d1).squaredNorm())
+//             + abs(null(xa+yb*L).row(d1).squaredNorm())
+//             + abs(null(xb+ya*L).row(d1).squaredNorm())
+//             + abs(null(xb+yb*L).row(d1).squaredNorm());
+        
+//         if (isnan(norm))  { 
+//             printf("Check null: Norm %.20f\n",norm);
+//             printf("level %d d1 %d\n",level,d1);
+//             cout<<null(xa+ya*L).row(d1)<<":\t"<<null(xa+yb*L).row(d1)<<":\t"<<null(xb+ya*L).row(d1)<<":\t"<<null(xb+yb*L).row(d1)<<endl;
+//             if (quit_flag==1) exit(1);}
+        
+//         if (norm<1e-10)  { 
+//             printf("Check null: Norm %.20f\n",norm);
+//             printf("level %d d1 %d\n",level,d1);
+//             cout<<null(xa+ya*L).row(d1)<<":\t"<<null(xa+yb*L).row(d1)<<":\t"<<null(xb+ya*L).row(d1)<<":\t"<<null(xb+yb*L).row(d1)<<endl;
+//             if (quit_flag==1) exit(1);}
+//             }
         printf("Null vector pass\n");
     }
 
@@ -360,7 +433,7 @@ void f_near_null(MArr1D phi_null, MArr2D D, int level, int quad, int num_iters, 
     // Build near null vectors and normalize them
     // Null vector has size L^2. Used to project down or up.
     double norm,g_norm;
-    int L,Lc,xa,xb,ya,yb,x,y,num,d1,d2,nf,nc;
+    int L,Lc,x,y,num,d1,d2,nf,nc;
     int iters_per_norm;
     
     L=p.size[level];
@@ -409,7 +482,9 @@ void f_ortho(MArr1D null, int level, params p) {
     // Orthogonalize set of near-null vector w.r.t previous ones i.e. different rows of phi_null[level][X]
     Complex dot,ans;
     double norm;
-    int xa,xb,ya,yb,x,y,L,Lc,d1,d2,d,n,nc;
+    
+    int d,d1,d2,L,Lc,n,nc;
+    int x,y,x1,y1,xc,yc,xf,yf,xbase,ybase;
     
     L=p.size[level];
     Lc=p.size[level+1];
@@ -427,7 +502,6 @@ void f_ortho(MArr1D null, int level, params p) {
     for(int d1=0; d1 < nc; d1++){
         // printf("Orthogonalizing vector for level %d : d1 %d\n",level,d1);
         // Store null vector  to orthogonalize
-        // for(int x=0;x<L; x++) for(int y=0; y<L; y++) for(d=0;d<n;d++) phi_temp1(x+y*L)(d)=null(x+y*L)(d1,d);
         for(int x=0;x<L; x++) for(int y=0; y<L; y++) phi_temp1(x+y*L)=null(x+y*L).row(d1);
         
         for(int d2=0; d2 < d1; d2++){ // Iterate over all lower d values
@@ -438,21 +512,61 @@ void f_ortho(MArr1D null, int level, params p) {
             // printf("Check phitemp2 before operation \t");
             // f_check_vec_norm(phi_temp2,level,p,1);
 
-            for(int x=0;x<Lc; x++) 
-                for(int y=0; y<Lc; y++) {
-                    xa=2*x;ya=2*y;
-                    xb=(2*x+1+L)%L;yb=(2*y+1+L)%L;
+            
+            
+            for(xc=0; xc<Lc; xc++) for(yc=0; yc<Lc; yc++) {
+                xbase=p.block_x * xc;
+                ybase=p.block_y * yc;
+                
+                norm=0.0;
+                dot=Complex(0.0,0.0);
+                
+                // Compute norm by summing over block
+                for(x1=0; x1<p.block_x; x1++) for(y1=0; y1<p.block_y; y1++){
+                    xf=(xbase+x1)%L;
+                    yf=(ybase+y1)%L;
                     
-                    norm=sqrt(phi_temp2(xa+ya*L).squaredNorm()
-                             +phi_temp2(xa+yb*L).squaredNorm()
-                             +phi_temp2(xb+ya*L).squaredNorm()
-                             +phi_temp2(xb+yb*L).squaredNorm());
+                    norm+=phi_temp2(xf+yf*L).squaredNorm(); 
+                    
+                    dot+=(phi_temp2(xf+yf*L).adjoint() * phi_temp1(xf+yf*L))(0,0); // Need the (0,0) to extract scalar from a 1x1 matrix
+                    // dot+=phi_temp2(xf+yf*L).dot(phi_temp1(xf+yf*L)) // Alternate way
+                    }
+                
+                norm=sqrt(norm);
+    
+                if (isnan(norm) || (norm<1e-8))  { 
+                    printf("Inside ortho: Norm %.20f\n",norm);
+                    printf("d1 %d, d2 %d\n",d1,d2);
+                    cout<<phi_temp2(xf+yf*L)<<endl;
+                    exit(1);}                    
+
+                if (isnan(real(dot)) || isnan(imag(dot)))  { 
+                    printf("Inside ortho: Norm %.20f\n",norm);
+                    printf("d1 %d, d2 %d\n",d1,d2);
+                    cout<<phi_temp2(xf+yf*L)<<endl;
+                    exit(1);}                    
+
+                for(x1=0; x1<p.block_x; x1++) for(y1=0; y1<p.block_y; y1++){
+                    xf=(xbase+x1)%L;
+                    yf=(ybase+y1)%L;
+                    // Can avoid dividing by norm, since it is 1.
+                    phi_temp1(xf+yf*L)+= -((dot/norm)*phi_temp2(xf+yf*L)); }
+            }
+//             for(int x=0;x<Lc; x++) 
+//                 for(int y=0; y<Lc; y++) {
+//                     xa=2*x;ya=2*y;
+//                     xb=(2*x+1+L)%L;yb=(2*y+1+L)%L;
+                    
+//                     norm=sqrt(phi_temp2(xa+ya*L).squaredNorm()
+//                              +phi_temp2(xa+yb*L).squaredNorm()
+//                              +phi_temp2(xb+ya*L).squaredNorm()
+//                              +phi_temp2(xb+yb*L).squaredNorm());
                     // printf("Norm %.20f\n",norm);
                    
-                    dot=( (phi_temp2(xa+ya*L).adjoint() * phi_temp1(xa+ya*L))(0,0) // Need the (0,0) to extract scalar from a 1x1 matrix
-                        + (phi_temp2(xa+yb*L).adjoint() * phi_temp1(xa+yb*L))(0,0)
-                        + (phi_temp2(xb+ya*L).adjoint() * phi_temp1(xb+ya*L))(0,0)
-                        + (phi_temp2(xb+yb*L).adjoint() * phi_temp1(xb+yb*L))(0,0) );
+                    // dot=( (phi_temp2(xa+ya*L).adjoint() * phi_temp1(xa+ya*L))(0,0) // Need the (0,0) to extract scalar from a 1x1 matrix
+                    //     + (phi_temp2(xa+yb*L).adjoint() * phi_temp1(xa+yb*L))(0,0)
+                    //     + (phi_temp2(xb+ya*L).adjoint() * phi_temp1(xb+ya*L))(0,0)
+                    //     + (phi_temp2(xb+yb*L).adjoint() * phi_temp1(xb+yb*L))(0,0) );
                     
                    // dot= ( (phi_temp2(xa+ya*L).dot(phi_temp1(xa+ya*L))) 
                    //      + (phi_temp2(xa+yb*L).dot(phi_temp1(xa+yb*L)))
@@ -460,34 +574,32 @@ void f_ortho(MArr1D null, int level, params p) {
                    //      + (phi_temp2(xb+yb*L).dot(phi_temp1(xb+yb*L))) );
                     // printf("norm %f \t dot %f +i %f\n",norm,real(dot),imag(dot));
                     
-                    if (isnan(norm))  { 
-                        printf("Inside ortho: Norm %.20f\n",norm);
-                        printf("d1 %d, d2 %d\n",d1,d2);
-                        cout<<phi_temp2(xa+ya*L)<<":\t"<<phi_temp2(xa+yb*L)<<":\t"<<phi_temp2(xb+ya*L)<<":\t"<<phi_temp2(xb+yb*L)<<endl;
-                        exit(1);}                    
+//                     if (isnan(norm))  { 
+//                         printf("Inside ortho: Norm %.20f\n",norm);
+//                         printf("d1 %d, d2 %d\n",d1,d2);
+//                         cout<<phi_temp2(xa+ya*L)<<":\t"<<phi_temp2(xa+yb*L)<<":\t"<<phi_temp2(xb+ya*L)<<":\t"<<phi_temp2(xb+yb*L)<<endl;
+//                         exit(1);}                    
                     
-                    if (norm<1e-8)  { 
-                        printf("Inside ortho: Norm %.20f\n",norm);
-                        printf("d1 %d, d2 %d\n",d1,d2);
-                        cout<<phi_temp2(xa+ya*L)<<":\t"<<phi_temp2(xa+yb*L)<<":\t"<<phi_temp2(xb+ya*L)<<":\t"<<phi_temp2(xb+yb*L)<<endl;
-                        exit(1);}                    
+//                     if (norm<1e-8)  { 
+//                         printf("Inside ortho: Norm %.20f\n",norm);
+//                         printf("d1 %d, d2 %d\n",d1,d2);
+//                         cout<<phi_temp2(xa+ya*L)<<":\t"<<phi_temp2(xa+yb*L)<<":\t"<<phi_temp2(xb+ya*L)<<":\t"<<phi_temp2(xb+yb*L)<<endl;
+//                         exit(1);}                    
                     
-                     if (isnan(real(dot)) || isnan(imag(dot)))  { 
-                        printf("Inside ortho: Norm %.20f\n",norm);
-                        printf("d1 %d, d2 %d\n",d1,d2);
-                        cout<<phi_temp2(xa+ya*L)<<":\t"<<phi_temp2(xa+yb*L)<<":\t"<<phi_temp2(xb+ya*L)<<":\t"<<phi_temp2(xb+yb*L)<<endl;
-                        exit(1);}                    
+//                      if (isnan(real(dot)) || isnan(imag(dot)))  { 
+//                         printf("Inside ortho: Norm %.20f\n",norm);
+//                         printf("d1 %d, d2 %d\n",d1,d2);
+//                         cout<<phi_temp2(xa+ya*L)<<":\t"<<phi_temp2(xa+yb*L)<<":\t"<<phi_temp2(xb+ya*L)<<":\t"<<phi_temp2(xb+yb*L)<<endl;
+//                         exit(1);}                    
                      
                     // cout<<"Before update"<<phi_temp1(xa+ya*L)<<":\t"<<phi_temp1(xa+yb*L)<<":\t"<<phi_temp1(xb+ya*L)<<":\t"<<phi_temp1(xb+yb*L)<<endl;
                     // Can avoid dividing by norm, since it is 1.
-                    phi_temp1(xa+ya*L)+= -((dot/norm)*phi_temp2(xa+ya*L)); 
-                    phi_temp1(xa+yb*L)+= -((dot/norm)*phi_temp2(xa+yb*L)); 
-                    phi_temp1(xb+ya*L)+= -((dot/norm)*phi_temp2(xb+ya*L)); 
-                    phi_temp1(xb+yb*L)+= -((dot/norm)*phi_temp2(xb+yb*L));
+                    // phi_temp1(xa+ya*L)+= -((dot/norm)*phi_temp2(xa+ya*L)); 
+                    // phi_temp1(xa+yb*L)+= -((dot/norm)*phi_temp2(xa+yb*L)); 
+                    // phi_temp1(xb+ya*L)+= -((dot/norm)*phi_temp2(xb+ya*L)); 
+                    // phi_temp1(xb+yb*L)+= -((dot/norm)*phi_temp2(xb+yb*L));
                     // cout<<"After update"<<phi_temp1(xa+ya*L)<<":\t"<<phi_temp1(xa+yb*L)<<":\t"<<phi_temp1(xb+ya*L)<<":\t"<<phi_temp1(xb+yb*L)<<endl;
-                }
         }
-                
         f_block_norm(phi_temp1,level,p);
        
         // Store null vector back in row of phi_null 
@@ -498,12 +610,12 @@ void f_ortho(MArr1D null, int level, params p) {
 void f_check_ortho(MArr1D null,int level, params p){
 
     Complex dot,ans;
-    double norm;
-    int xa,xb,ya,yb,x,y,Lf,Lc,d1,d2,d,nf,nc;
+
+    int d,d1,d2,Lf,Lc,nf,nc;
+    int x1,y1,xc,yc,xf,yf,xbase,ybase;
     
     Lf=p.size[level];
     Lc=p.size[level+1];
-    
     nf=p.n_dof[level];
     nc=p.n_dof[level+1];
     
@@ -511,24 +623,40 @@ void f_check_ortho(MArr1D null,int level, params p){
     for (int j = 0; j < Lf*Lf ; j++)  phi_temp1(j) = ColorVector(nf); // Vector to orthogonalize
     for (int j = 0; j < Lf*Lf ; j++)  phi_temp2(j) = ColorVector(nf); // Previous vectors
     
-    
     // Check orthogonality after storing
     for(int d1=0; d1 < nc; d1++){
         for(int d2=0; d2 < d1; d2++){ // Iterate over all lower d values
             printf("Check Ortho for d1 %d, d2 %d\n",d1,d2);
-            for(int x=0;x<Lc; x++) for(int y=0; y<Lc; y++) {
-                    // x=0;y=0;
-                    xa=2*x;ya=2*y;
-                    xb=(2*x+1+Lf)%Lf;yb=(2*y+1+Lf)%Lf;
+            
+            for(xc=0; xc<Lc; xc++) for(yc=0; yc<Lc; yc++) {
+                xbase=p.block_x * xc;
+                ybase=p.block_y * yc;
+                ans=Complex(0.0,0.0);
 
-                     ans=( (null(xa+ya*Lf).row(d1).dot(null(xa+ya*Lf).row(d2)))
-                         + (null(xa+yb*Lf).row(d1).dot(null(xa+yb*Lf).row(d2)))
-                         + (null(xb+ya*Lf).row(d1).dot(null(xb+ya*Lf).row(d2)))
-                         + (null(xb+yb*Lf).row(d1).dot(null(xb+yb*Lf).row(d2))));
+                // Compute norm by summing over block
+                for(x1=0; x1<p.block_x; x1++) for(y1=0; y1<p.block_y; y1++){
+                    xf=(xbase+x1)%Lf;
+                    yf=(ybase+y1)%Lf;
+                    ans+=null(xf+yf*Lf).row(d1).dot(null(xf+yf*Lf).row(d2));
+                    }
+                if(abs(ans)>1e-12){
+                    printf("After storing %d not orthogonal to %d for x,y %d,%d\t",d1,d2,xc,yc);
+                    cout<<"Norm"<<abs(ans)<<ans<<endl ; }            
+            
+            
+//             for(int x=0;x<Lc; x++) for(int y=0; y<Lc; y++) {
+//                     // x=0;y=0;
+//                     xa=2*x;ya=2*y;
+//                     xb=(2*x+1+Lf)%Lf;yb=(2*y+1+Lf)%Lf;
+
+//                      ans=( (null(xa+ya*Lf).row(d1).dot(null(xa+ya*Lf).row(d2)))
+//                          + (null(xa+yb*Lf).row(d1).dot(null(xa+yb*Lf).row(d2)))
+//                          + (null(xb+ya*Lf).row(d1).dot(null(xb+ya*Lf).row(d2)))
+//                          + (null(xb+yb*Lf).row(d1).dot(null(xb+yb*Lf).row(d2))));
                     
-                    if(abs(ans)>1e-12){
-                        printf("After storing %d not orthogonal to %d for x,y %d,%d\t",d1,d2,x,y);
-                        cout<<"Norm"<<abs(ans)<<ans<<endl ; }
+//                     if(abs(ans)>1e-12){
+//                         printf("After storing %d not orthogonal to %d for x,y %d,%d\t",d1,d2,x,y);
+//                         cout<<"Norm"<<abs(ans)<<ans<<endl ; }
             }}}
 }
 
@@ -547,12 +675,16 @@ int main (int argc, char *argv[])
     int iter,lvl,d1,d2;
     int gs_flag; // Flag for gauss-seidel (=1)
     int num_iters;// Iterations of Gauss-Seidel each time
-    gs_flag=1;  // Gauss-seidel
-    n_dof=2;
-    // gs_flag=0; // Jacobi
-    
+    int block_x,block_y; // Size of blocks
+        
     // #################### 
     // Set parameters
+    gs_flag=1;  // Gauss-seidel
+    // gs_flag=0; // Jacobi
+    n_dof=2;  
+    block_x=2;
+    block_y=2;
+    
     // L=256;
     // p.m=0.002; // mass
     // p.nlevels=6;
@@ -573,45 +705,49 @@ int main (int argc, char *argv[])
     p.size[0]=p.L;
     p.scale[0]=1.0/(4.0+p.m*p.m*p.a[0]*p.a[0]);// 1/(4+m^2 a^2) 
     p.n_dof[0]=1;
+    p.block_x=block_x;
+    p.block_y=block_y;
     
-    max_levels=(int)log2(L)-1 ; // L = 8 -> max_levels=2
-    printf("Max levels for lattice %d is %d\n",L,max_levels);
+    // max_levels=ceil(log2(L)/log2(p.block_x))-1 ; // L = 8, block=2 -> max_levels=2 
+    max_levels=ceil(log2(L)/log2(p.block_x)) ; // L = 8, block=2 -> max_levels=2 
+    printf("Max levels for lattice %d with block size %d is %d\n",L,block_x,max_levels);
     
     if (p.nlevels>max_levels){
-        printf(" Error. Too many levels %d. Can only have %d levels for lattice of size  %d",p.nlevels,max_levels,p.L);
+        printf(" Error. Too many levels %d. Can only have %d levels for block size %d for lattice of size  %d",p.nlevels,max_levels,p.block_x,p.L); // Need to change for Lx != Ly
         exit(1);
     }
     
     printf("V cycle with %d levels for lattice of size %d. Max levels %d\n",p.nlevels,L,max_levels);
     
     for(int level=1;level<p.nlevels+1;level++){
-        p.size[level]=p.size[level-1]/2;
+        p.size[level]=p.size[level-1]/p.block_x;   // Need to change for Lx != Ly
         // p.a[level]=2.0*p.a[level-1];
         p.a[level]=1.0; // For adaptive Mgrid, set a=1
         p.scale[level]=1.0/(4+p.m*p.m*p.a[level]*p.a[level]);
         p.n_dof[level]=p.n_dof[level-1]*n_dof;
     }
     
+    printf("\nLevel\tL\tN_dof");
     for(int level=0;level<p.nlevels+1;level++){
         printf("\n%d\t%d\t%d",level,p.size[level],p.n_dof[level]);}
     
     // Intialize random state
     // std::random_device rd;
     // std::mt19937 gen(rd());
-    std::mt19937 gen (4357u);// Set a random seed
+    std::mt19937 gen (430259u);// Set a random seed
     std::uniform_real_distribution<double> dist(-M_PI, M_PI);
-
+    
     // Define variables
     VArr1D phi[20],r[20];
     for(int i=0; i<p.nlevels+1; i++){
         phi[i]=VArr1D(p.size[i]*p.size[i]);
         r[i]=VArr1D(p.size[i]*p.size[i]);
-            for (int j = 0; j < p.size[i]*p.size[i] ; j++){
-                phi[i](j) = ColorVector(p.n_dof[i]);
-                r[i](j) = ColorVector(p.n_dof[i]);
-                // Initialize
-                // for(int d1=0;d1<size;d1++)
-                //         phi[i](j)(d1) = 0.0;r[i](j)(d1)=0.0;
+        for (int j = 0; j < p.size[i]*p.size[i] ; j++){
+            phi[i](j) = ColorVector(p.n_dof[i]);
+            r[i](j) = ColorVector(p.n_dof[i]);
+            // Initialize
+            // for(int d1=0;d1<size;d1++)
+            //         phi[i](j)(d1) = 0.0;r[i](j)(d1)=0.0;
       }}
 
     // D: Sparse matrix with 5 non-zero elements for each site (site + 4 ngbs in 2D)
@@ -639,24 +775,18 @@ int main (int argc, char *argv[])
                 // phi_null[i](j)(d1,d2)=1.0;}
     }}
  
-    // for(int i=0; i<p.nlevels; i++){
-    //     for (int j = 0; j < p.size[i]*p.size[i]; j++){
-    //         printf("\nPhi_nul dims for level %d and site  %d\t",i,j);
-    //         cout<<phi_null[i](j).rows()<<"\t"<<phi_null[i](j).cols()<<endl;
-    //         for(d1=0; d1<p.n_dof[i+1]; d1++){
-    //         cout<<"Norm of phi_null row "<<d1<<"\t"<<phi_null[i](j).row(d1).squaredNorm()<<endl;
-    //         }
-    //     }}
-    // exit(1);
-    
     // Single random phase
     Complex rnd1;
     rnd1=std::polar(1.0,dist(gen));
+    cout<<rnd1<<endl;
     double mean_angle;
-    mean_angle=dist(gen);
-    cout<<"\nInitial mean Angle"<<mean_angle<<endl;
-    std::normal_distribution<double> dist2(mean_angle,0.5);
-
+    for(int i=0; i<1; i++){
+        mean_angle=dist(gen);
+        cout<<"\nInitial mean Angle"<<mean_angle<<endl; }
+    // printf("M_PI %f\n",M_PI);
+    std::normal_distribution<double> dist2(mean_angle,0.05);
+    
+    
     MArr2D U(p.size[0]*p.size[0],2);// Link fields at each point with two directions
     for(int i=0; i< p.size[0]*p.size[0]; i++)
         for(int j=0; j< 2; j++){
@@ -666,18 +796,18 @@ int main (int argc, char *argv[])
                 // if (d1==d2) U(i,j)(d1,d2)=1.0; 
                 // if (d1==d2) U(i,j)(d1,d2)=std::polar(1.0,PI);// Global phase of -1
                 // if (d1==d2) U(i,j)(d1,d2)=rnd1; // Random global phase 
-                if (d1==d2) U(i,j)(d1,d2)=std::polar(1.0,dist(gen)); // Random local phase
-                // if (d1==d2) U(i,j)(d1,d2)=std::polar(1.0,dist2(gen)); // Gaussian local phase
+                // if (d1==d2) U(i,j)(d1,d2)=std::polar(1.0,dist(gen)); // Random local phase
+                if (d1==d2) U(i,j)(d1,d2)=std::polar(1.0,dist2(gen)); // Gaussian local phase
                 else U(i,j)(d1,d2)=0.0;
             }}
     
-    // Write phases to file  
-    FILE* pfile4 = fopen ("Uphases.txt","w"); 
-    for(int x=0; x<p.size[0]; x++) for (int y=0; y<p.size[0]; y++)
-        for( int j=0; j< 2; j++)
-            for(d1=0;d1<p.n_dof[0];d1++) for(d2=0;d2<p.n_dof[0];d2++){
-                fprintf(pfile4,"%f+i%f\n",real(U(x+L*y,j)(d1,d2)),imag(U(x+L*y,j)(d1,d2)));}
-    fclose(pfile4);
+    // // Write phases to file  
+    // FILE* pfile4 = fopen ("Uphases.txt","w"); 
+    // for(int x=0; x<p.size[0]; x++) for (int y=0; y<p.size[0]; y++)
+    //     for( int j=0; j< 2; j++)
+    //         for(d1=0;d1<p.n_dof[0];d1++) for(d2=0;d2<p.n_dof[0];d2++){
+    //             fprintf(pfile4,"%f+i%f\n",real(U(x+L*y,j)(d1,d2)),imag(U(x+L*y,j)(d1,d2)));}
+    // fclose(pfile4);
    
     // Read phases from file
     double re,im;
@@ -794,7 +924,7 @@ int main (int argc, char *argv[])
         if (resmag < res_threshold) {  // iter+1 everywhere below since iteration is complete
             printf("\nLoop breaks at iteration %d with residue %e < %e",iter+1,resmag,res_threshold); 
             printf("\nL %d\tm %f\tnlevels %d\tnum_per_level %d\tAns %d\n",L,p.m,p.nlevels,num_iters,iter+1);
-            fprintf(pfile1,"%d\t%f\t%d\t%d\t%d\n",L,p.m,p.nlevels,num_iters,iter+1);
+            fprintf(pfile1,"%d\t%d\t%f\t%d\t%d\t%d\t%d\t%d\n",L,num_iters,p.m,p.block_x,p.block_y,n_dof,p.nlevels,iter+1);
             f_write_op(phi[0],r[0], iter+1, pfile2, p); 
             f_write_residue(D[0],phi[0],r[0],0, iter+1, pfile3, p);
             break;}
