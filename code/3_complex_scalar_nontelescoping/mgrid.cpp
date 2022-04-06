@@ -182,7 +182,7 @@ void relax(MArr2D D, VArr1D phi, VArr1D res, int level, int num_iter, params p, 
                 norm=D(x+y*L,0).inverse().norm();
                 if (isnan(norm))  {  
                 // if (1>0){
-                    printf("Nan in D0 inverse %e \n",norm);
+                    printf("Error: Nan in D0 inverse %e \n",norm);
                     cout<<"D0 matrix"<<D(x+y*L,0)<<endl;
                     exit(1);
                 }
@@ -660,8 +660,94 @@ void f_check_ortho(MArr1D null,int level, params p){
             }}}
 }
 
+
+
+void f_write_near_null(MArr1D* phi_null, params p){
+    // Write near null vectors to file
+    FILE* pfile;
+    char fname[1024];
+    sprintf(fname,"Near-null_L%d_blk%d_ndof%d.txt",p.size[0],p.block_x,p.n_dof[0]);
+    cout<<"Writing near_null vectors to file\t"<<fname<<endl;
+    
+    pfile = fopen (fname,"w"); 
+    for(int i=0; i<p.nlevels; i++){
+        for (int j = 0; j < p.size[i]*p.size[i]; j++){
+            for(int d1=0;d1<p.n_dof[i+1];d1++) for(int d2=0;d2<p.n_dof[i];d2++){
+                fprintf(pfile,"%20.25e+i%20.25e\n",real(phi_null[i](j)(d1,d2)),imag(phi_null[i](j)(d1,d2))); }}}
+    fclose(pfile);
+}
+
+void f_read_near_null(MArr1D* phi_null, params p){
+    // Write near null vectors to file
+    FILE* pfile;
+    char fname[1024];
+    sprintf(fname,"Near-null_L%d_blk%d_ndof%d.txt",p.size[0],p.block_x,p.n_dof[0]);
+    cout<<"Reading near_null vectors from file"<<fname<<endl;
+    
+    double re,im;
+    pfile = fopen (fname,"r"); 
+    for(int i=0; i<p.nlevels; i++){
+        for (int j = 0; j < p.size[i]*p.size[i]; j++){
+            for(int d1=0;d1<p.n_dof[i+1];d1++) for(int d2=0;d2<p.n_dof[i];d2++){
+                fscanf(pfile,"%lf+i%lf\n",&re,&im); 
+                phi_null[i](j)(d1,d2)=complex<double>(re,im);}}}
+    fclose(pfile);
+}
+
+    // FILE* pfile4 = fopen ("Uphases.txt","w"); 
+    // for(int x=0; x<p.size[0]; x++) for (int y=0; y<p.size[0]; y++)
+    //     for( int j=0; j< 2; j++)
+    //         for(d1=0;d1<p.n_dof[0];d1++) for(d2=0;d2<p.n_dof[0];d2++){
+    //             fprintf(pfile4,"%f+i%f\n",real(U(x+L*y,j)(d1,d2)),imag(U(x+L*y,j)(d1,d2)));}
+    // fclose(pfile4);
+
+
+void f_plaquette(MArr2D U, params p){
+
+    int x,y,j,d1,d2,L;
+    Complex plaq;
+    
+    plaq=Complex(0.0,0.0);
+    L=p.size[0];
+    for(x=0; x<L; x++) for (y=0; y<L; y++){
+        plaq+=(U(x+y*L,0)*U((x+1)%L+y*L,1)*U(x+(((y+1)%L)*L),0).adjoint()*U(x+y*L,1).adjoint()).diagonal().sum();
+    }
+    cout<<"\nPlaquette "<<plaq<<endl;
+}
+
+void f_write_gaugeU(MArr2D U, params p){
+    // Write Gauge field U to file
+    int x,y,j,d1,d2;
+    FILE* pfile;
+    
+    pfile = fopen ("Uphases.txt","w"); 
+    
+    for(x=0; x<p.size[0]; x++) for (y=0; y<p.size[0]; y++)
+        for(j=0; j< 2; j++)
+            for(d1=0;d1<p.n_dof[0];d1++) for(d2=0;d2<p.n_dof[0];d2++){
+                fprintf(pfile,"%25.20e+i%25.20e\n",real(U(x+p.size[0]*y,j)(d1,d2)),imag(U(x+p.size[0]*y,j)(d1,d2)));}
+    fclose(pfile);
+}
+
+void f_read_gaugeU(MArr2D U, params p){
+    // Read phases from file
+    double re,im;
+    int x,y,j,d1,d2;
+    FILE* pfile;
+    
+    pfile = fopen ("Uphases.txt","r");
+    for(x=0; x<p.size[0]; x++) for (y=0; y<p.size[0]; y++)
+        for(j=0; j< 2; j++)
+            for(d1=0;d1<p.n_dof[0];d1++) for(d2=0;d2<p.n_dof[0];d2++){
+                fscanf(pfile,"%lf+i%lf\n",&re,&im);
+                U(x+p.size[0]*y,j)(d1,d2)=complex<double>(re,im);}
+    fclose(pfile);
+}
+
+
 #include "modules.h"
 #include "tests.h"
+
 int main (int argc, char *argv[])
     { 
     params p;
@@ -684,20 +770,23 @@ int main (int argc, char *argv[])
     n_dof=2;  
     block_x=2;
     block_y=2;
-    
+    int gen_null; // Flag for generating near null vectors
+
+
     // L=256;
+    // num_iters=20;  // number of Gauss-Seidel iterations
     // p.m=0.002; // mass
     // p.nlevels=6;
-    // num_iters=20;  // number of Gauss-Seidel iterations
 
     L=atoi(argv[1]);
-    p.m=atof(argv[2]);
-    p.nlevels=atoi(argv[3]);
-    num_iters=atoi(argv[4]);
+    num_iters=atoi(argv[2]);
+    gen_null=atoi(argv[3]);
+    p.m=atof(argv[4]);
+    p.nlevels=atoi(argv[5]);
+    
     
     res_threshold=1.0e-13;
     int max_iters=10000; // max iterations of main code
-    // int max_iters=5000; // max iterations of main code
     // #################### 
     
     p.a[0]=1.0;
@@ -709,7 +798,7 @@ int main (int argc, char *argv[])
     p.block_y=block_y;
     
     // max_levels=ceil(log2(L)/log2(p.block_x))-1 ; // L = 8, block=2 -> max_levels=2 
-    max_levels=ceil(log2(L)/log2(p.block_x)) ; // L = 8, block=2 -> max_levels=2 
+    max_levels=ceil(log2(L)/log2(p.block_x)) ; // L = 8, block=2 -> max_levels=3 
     printf("Max levels for lattice %d with block size %d is %d\n",L,block_x,max_levels);
     
     if (p.nlevels>max_levels){
@@ -737,6 +826,41 @@ int main (int argc, char *argv[])
     std::mt19937 gen (430259u);// Set a random seed
     std::uniform_real_distribution<double> dist(-M_PI, M_PI);
     
+    // Generate Gaussian distribution about random mean angle
+    double mean_angle;
+    for(int i=0; i<8; i++){
+        mean_angle=dist(gen);
+        cout<<"\nInitial mean Angle "<<mean_angle; }
+    // printf("M_PI %f\n",M_PI);
+    mean_angle=0.5;
+    std::normal_distribution<double> dist2(mean_angle,0.1);
+    
+    // Single random phase
+    Complex rnd1;
+    rnd1=std::polar(1.0,dist(gen));
+    cout<<endl<<rnd1<<endl;
+    
+    // gauge field U : (X,idx:0,1)(color d1,color d2)
+    MArr2D U(p.size[0]*p.size[0],2);// Link fields at each point with two directions
+    for(int i=0; i< p.size[0]*p.size[0]; i++)
+        for(int j=0; j< 2; j++){
+            U(i,j) = ColorMatrix(p.n_dof[0],p.n_dof[0]);
+            // Initialize
+            for(d1=0;d1<p.n_dof[0];d1++) for(d2=0;d2<p.n_dof[0];d2++){
+                // if (d1==d2) U(i,j)(d1,d2)=1.0; 
+                // if (d1==d2) U(i,j)(d1,d2)=std::polar(1.0,PI);// Global phase of -1
+                // if (d1==d2) U(i,j)(d1,d2)=rnd1; // Random global phase 
+                // if (d1==d2) U(i,j)(d1,d2)=std::polar(1.0,dist(gen)); // Random local phase
+                if (d1==d2) U(i,j)(d1,d2)=std::polar(1.0,dist2(gen)); // Gaussian local phase
+                else U(i,j)(d1,d2)=0.0;
+            }}
+    
+    f_plaquette(U,p);
+    // f_write_gaugeU(U, p);  // Write gauge field config from file
+    f_read_gaugeU(U, p);   // Read gauge field config from file
+    f_plaquette(U,p);
+    
+    // exit(1);
     // Define variables
     VArr1D phi[20],r[20];
     for(int i=0; i<p.nlevels+1; i++){
@@ -749,7 +873,7 @@ int main (int argc, char *argv[])
             // for(int d1=0;d1<size;d1++)
             //         phi[i](j)(d1) = 0.0;r[i](j)(d1)=0.0;
       }}
-
+    
     // D: Sparse matrix with 5 non-zero elements for each site (site + 4 ngbs in 2D)
     MArr2D D[20];
     for(int i=0; i<p.nlevels+1; i++){
@@ -772,53 +896,8 @@ int main (int argc, char *argv[])
             // Random initialization 
             for(int d1=0;d1<p.n_dof[i+1];d1++) for(int d2=0;d2<p.n_dof[i];d2++){
                 phi_null[i](j)(d1,d2)=dist(gen);}
-                // phi_null[i](j)(d1,d2)=1.0;}
     }}
  
-    // Single random phase
-    Complex rnd1;
-    rnd1=std::polar(1.0,dist(gen));
-    cout<<rnd1<<endl;
-    double mean_angle;
-    for(int i=0; i<1; i++){
-        mean_angle=dist(gen);
-        cout<<"\nInitial mean Angle"<<mean_angle<<endl; }
-    // printf("M_PI %f\n",M_PI);
-    std::normal_distribution<double> dist2(mean_angle,0.05);
-    
-    
-    MArr2D U(p.size[0]*p.size[0],2);// Link fields at each point with two directions
-    for(int i=0; i< p.size[0]*p.size[0]; i++)
-        for(int j=0; j< 2; j++){
-            U(i,j) = ColorMatrix(p.n_dof[0],p.n_dof[0]);
-            // Initialize
-            for(d1=0;d1<p.n_dof[0];d1++) for(d2=0;d2<p.n_dof[0];d2++){
-                // if (d1==d2) U(i,j)(d1,d2)=1.0; 
-                // if (d1==d2) U(i,j)(d1,d2)=std::polar(1.0,PI);// Global phase of -1
-                // if (d1==d2) U(i,j)(d1,d2)=rnd1; // Random global phase 
-                // if (d1==d2) U(i,j)(d1,d2)=std::polar(1.0,dist(gen)); // Random local phase
-                if (d1==d2) U(i,j)(d1,d2)=std::polar(1.0,dist2(gen)); // Gaussian local phase
-                else U(i,j)(d1,d2)=0.0;
-            }}
-    
-    // // Write phases to file  
-    // FILE* pfile4 = fopen ("Uphases.txt","w"); 
-    // for(int x=0; x<p.size[0]; x++) for (int y=0; y<p.size[0]; y++)
-    //     for( int j=0; j< 2; j++)
-    //         for(d1=0;d1<p.n_dof[0];d1++) for(d2=0;d2<p.n_dof[0];d2++){
-    //             fprintf(pfile4,"%f+i%f\n",real(U(x+L*y,j)(d1,d2)),imag(U(x+L*y,j)(d1,d2)));}
-    // fclose(pfile4);
-   
-    // Read phases from file
-    double re,im;
-    FILE* pfile5 = fopen ("Uphases.txt","r"); 
-    for(int x=0; x<p.size[0]; x++) for (int y=0; y<p.size[0]; y++)
-        for( int j=0; j< 2; j++)
-            for(d1=0;d1<p.n_dof[0];d1++) for(d2=0;d2<p.n_dof[0];d2++){
-                fscanf(pfile5,"%lf+i%lf\n",&re,&im);
-                U(x+L*y,j)(d1,d2)=complex<double>(re,im);}
-    fclose(pfile5);
-    
     // Define sources
     r[0](0)(0)=1.0;
     r[0](1+0*L)(0)=complex<double>(2.0,2.0);
@@ -831,24 +910,37 @@ int main (int argc, char *argv[])
     cout<<"\nResidue "<<resmag<<endl;
     int quad=1;
     
-    // exit(1);
     /* ###################### */
     // Setup operators for adaptive Mgrid
     
-    for(lvl=0;lvl<p.nlevels;lvl++){
-        printf("lvl %d\n",lvl);
-        //Compute near null vectors and normalize them
-        // f_coarsen_null(phi_null[lvl+1],phi_null[lvl],phi_null[lvl],lvl,p,quad);  // Either create new near null vectors at each level or Restrict from upper level
-        
-        f_near_null(phi_null[lvl], D[lvl],lvl, quad, 500, gs_flag, p);
-        f_ortho(phi_null[lvl],lvl,p);
-        f_ortho(phi_null[lvl],lvl,p);
-        f_ortho(phi_null[lvl],lvl,p);
-        // Check orthogonality
-        f_check_ortho(phi_null[lvl],lvl,p);
-        // Compute D matrix for lower level
-        f_compute_coarse_matrix(D,phi_null[lvl], lvl, p);
+    if (gen_null){// Generate near-null vectors and store them
+        printf("Generating near null vectors\n");
+        for(lvl=0;lvl<p.nlevels;lvl++){
+            printf("lvl %d\n",lvl);
+            //Compute near null vectors and normalize them
+            f_near_null(phi_null[lvl], D[lvl],lvl, quad, 500, gs_flag, p);
+            f_ortho(phi_null[lvl],lvl,p);
+            f_ortho(phi_null[lvl],lvl,p);
+            f_ortho(phi_null[lvl],lvl,p);
+            // Check orthogonality
+            f_check_ortho(phi_null[lvl],lvl,p);
+            // Compute D matrix for lower level
+            f_compute_coarse_matrix(D,phi_null[lvl], lvl, p);
+        }
+        // Write near null vectors to file
+        f_write_near_null(phi_null,p);
+     }
+ 
+    else {// Read near null vectors from file and compute coarse D matrix
+        f_read_near_null(phi_null,p);
+        for(lvl=0;lvl<p.nlevels;lvl++){
+            // Check orthogonality
+            f_check_ortho(phi_null[lvl],lvl,p);
+            // Compute D matrix for lower level
+            f_compute_coarse_matrix(D,phi_null[lvl], lvl, p);
+        }
     }
+   // exit(1); 
     
     // Test D matrix values
     for(lvl=0;lvl<p.nlevels+1;lvl++){
