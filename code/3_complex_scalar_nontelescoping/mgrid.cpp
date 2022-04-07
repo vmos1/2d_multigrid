@@ -266,22 +266,6 @@ void f_block_norm(VArr1D vec, int level, params p){
             vec(xf+yf*L)/=norm;
         }
     }
-    
-    
-//         /// ## need to delete ##     
-//             xa=2*x;ya=2*y;
-//             xb=(2*x+1+L)%L;yb=(2*y+1+L)%L;
-
-//             norm=sqrt(vec(xa+ya*L).squaredNorm()
-//                      +vec(xa+yb*L).squaredNorm()
-//                      +vec(xb+ya*L).squaredNorm()
-//                      +vec(xb+yb*L).squaredNorm());
-           
-//             vec(xa+ya*L)/=norm;
-//             vec(xa+yb*L)/=norm;
-//             vec(xb+ya*L)/=norm;
-//             vec(xb+yb*L)/=norm;
-//     }
 }
 
 void f_check_block_norm(VArr1D vec, int level, params p){
@@ -308,20 +292,11 @@ void f_check_block_norm(VArr1D vec, int level, params p){
             }
         norm=sqrt(norm);
         
-//     for(x=0; x<Lc; x++) 
-//         for(y=0; y<Lc; y++) {
-//             xa=2*x;ya=2*y;
-//             xb=(2*x+1+L)%L;yb=(2*y+1+L)%L;
-
-//             norm=sqrt(vec(xa+ya*L).squaredNorm()
-//                      +vec(xa+yb*L).squaredNorm()
-//                      +vec(xb+ya*L).squaredNorm()
-//                      +vec(xb+yb*L).squaredNorm());
-            // printf("Norm %f\n",norm);
-            if (isnan(norm))  {
-                printf("Inside block_norm: Norm %.20f\n",norm);
-                exit(1);
-            }
+        // printf("Norm %f\n",norm);
+        if (isnan(norm))  {
+            printf("Inside block_norm: Norm %.20f\n",norm);
+            exit(1);
+        }
     }
 }
 
@@ -552,53 +527,6 @@ void f_ortho(MArr1D null, int level, params p) {
                     // Can avoid dividing by norm, since it is 1.
                     phi_temp1(xf+yf*L)+= -((dot/norm)*phi_temp2(xf+yf*L)); }
             }
-//             for(int x=0;x<Lc; x++) 
-//                 for(int y=0; y<Lc; y++) {
-//                     xa=2*x;ya=2*y;
-//                     xb=(2*x+1+L)%L;yb=(2*y+1+L)%L;
-                    
-//                     norm=sqrt(phi_temp2(xa+ya*L).squaredNorm()
-//                              +phi_temp2(xa+yb*L).squaredNorm()
-//                              +phi_temp2(xb+ya*L).squaredNorm()
-//                              +phi_temp2(xb+yb*L).squaredNorm());
-                    // printf("Norm %.20f\n",norm);
-                   
-                    // dot=( (phi_temp2(xa+ya*L).adjoint() * phi_temp1(xa+ya*L))(0,0) // Need the (0,0) to extract scalar from a 1x1 matrix
-                    //     + (phi_temp2(xa+yb*L).adjoint() * phi_temp1(xa+yb*L))(0,0)
-                    //     + (phi_temp2(xb+ya*L).adjoint() * phi_temp1(xb+ya*L))(0,0)
-                    //     + (phi_temp2(xb+yb*L).adjoint() * phi_temp1(xb+yb*L))(0,0) );
-                    
-                   // dot= ( (phi_temp2(xa+ya*L).dot(phi_temp1(xa+ya*L))) 
-                   //      + (phi_temp2(xa+yb*L).dot(phi_temp1(xa+yb*L)))
-                   //      + (phi_temp2(xb+ya*L).dot(phi_temp1(xb+ya*L)))
-                   //      + (phi_temp2(xb+yb*L).dot(phi_temp1(xb+yb*L))) );
-                    // printf("norm %f \t dot %f +i %f\n",norm,real(dot),imag(dot));
-                    
-//                     if (isnan(norm))  { 
-//                         printf("Inside ortho: Norm %.20f\n",norm);
-//                         printf("d1 %d, d2 %d\n",d1,d2);
-//                         cout<<phi_temp2(xa+ya*L)<<":\t"<<phi_temp2(xa+yb*L)<<":\t"<<phi_temp2(xb+ya*L)<<":\t"<<phi_temp2(xb+yb*L)<<endl;
-//                         exit(1);}                    
-                    
-//                     if (norm<1e-8)  { 
-//                         printf("Inside ortho: Norm %.20f\n",norm);
-//                         printf("d1 %d, d2 %d\n",d1,d2);
-//                         cout<<phi_temp2(xa+ya*L)<<":\t"<<phi_temp2(xa+yb*L)<<":\t"<<phi_temp2(xb+ya*L)<<":\t"<<phi_temp2(xb+yb*L)<<endl;
-//                         exit(1);}                    
-                    
-//                      if (isnan(real(dot)) || isnan(imag(dot)))  { 
-//                         printf("Inside ortho: Norm %.20f\n",norm);
-//                         printf("d1 %d, d2 %d\n",d1,d2);
-//                         cout<<phi_temp2(xa+ya*L)<<":\t"<<phi_temp2(xa+yb*L)<<":\t"<<phi_temp2(xb+ya*L)<<":\t"<<phi_temp2(xb+yb*L)<<endl;
-//                         exit(1);}                    
-                     
-                    // cout<<"Before update"<<phi_temp1(xa+ya*L)<<":\t"<<phi_temp1(xa+yb*L)<<":\t"<<phi_temp1(xb+ya*L)<<":\t"<<phi_temp1(xb+yb*L)<<endl;
-                    // Can avoid dividing by norm, since it is 1.
-                    // phi_temp1(xa+ya*L)+= -((dot/norm)*phi_temp2(xa+ya*L)); 
-                    // phi_temp1(xa+yb*L)+= -((dot/norm)*phi_temp2(xa+yb*L)); 
-                    // phi_temp1(xb+ya*L)+= -((dot/norm)*phi_temp2(xb+ya*L)); 
-                    // phi_temp1(xb+yb*L)+= -((dot/norm)*phi_temp2(xb+yb*L));
-                    // cout<<"After update"<<phi_temp1(xa+ya*L)<<":\t"<<phi_temp1(xa+yb*L)<<":\t"<<phi_temp1(xb+ya*L)<<":\t"<<phi_temp1(xb+yb*L)<<endl;
         }
         f_block_norm(phi_temp1,level,p);
        
@@ -643,20 +571,6 @@ void f_check_ortho(MArr1D null,int level, params p){
                     printf("After storing %d not orthogonal to %d for x,y %d,%d\t",d1,d2,xc,yc);
                     cout<<"Norm"<<abs(ans)<<ans<<endl ; }            
             
-            
-//             for(int x=0;x<Lc; x++) for(int y=0; y<Lc; y++) {
-//                     // x=0;y=0;
-//                     xa=2*x;ya=2*y;
-//                     xb=(2*x+1+Lf)%Lf;yb=(2*y+1+Lf)%Lf;
-
-//                      ans=( (null(xa+ya*Lf).row(d1).dot(null(xa+ya*Lf).row(d2)))
-//                          + (null(xa+yb*Lf).row(d1).dot(null(xa+yb*Lf).row(d2)))
-//                          + (null(xb+ya*Lf).row(d1).dot(null(xb+ya*Lf).row(d2)))
-//                          + (null(xb+yb*Lf).row(d1).dot(null(xb+yb*Lf).row(d2))));
-                    
-//                     if(abs(ans)>1e-12){
-//                         printf("After storing %d not orthogonal to %d for x,y %d,%d\t",d1,d2,x,y);
-//                         cout<<"Norm"<<abs(ans)<<ans<<endl ; }
             }}}
 }
 
@@ -767,11 +681,10 @@ int main (int argc, char *argv[])
     // Set parameters
     gs_flag=1;  // Gauss-seidel
     // gs_flag=0; // Jacobi
-    n_dof=2;  
-    block_x=2;
-    block_y=2;
+    n_dof=1;  
+    // block_x=2;
+    // block_y=2;
     int gen_null; // Flag for generating near null vectors
-
 
     // L=256;
     // num_iters=20;  // number of Gauss-Seidel iterations
@@ -780,9 +693,11 @@ int main (int argc, char *argv[])
 
     L=atoi(argv[1]);
     num_iters=atoi(argv[2]);
-    gen_null=atoi(argv[3]);
-    p.m=atof(argv[4]);
-    p.nlevels=atoi(argv[5]);
+    block_x=atoi(argv[3]);
+    block_y=atoi(argv[3]);
+    gen_null=atoi(argv[4]);
+    p.m=atof(argv[5]);
+    p.nlevels=atoi(argv[6]);
     
     
     res_threshold=1.0e-13;
@@ -833,7 +748,7 @@ int main (int argc, char *argv[])
         cout<<"\nInitial mean Angle "<<mean_angle; }
     // printf("M_PI %f\n",M_PI);
     mean_angle=0.5;
-    std::normal_distribution<double> dist2(mean_angle,0.1);
+    std::normal_distribution<double> dist2(mean_angle,0.001);
     
     // Single random phase
     Complex rnd1;
@@ -847,11 +762,11 @@ int main (int argc, char *argv[])
             U(i,j) = ColorMatrix(p.n_dof[0],p.n_dof[0]);
             // Initialize
             for(d1=0;d1<p.n_dof[0];d1++) for(d2=0;d2<p.n_dof[0];d2++){
-                // if (d1==d2) U(i,j)(d1,d2)=1.0; 
+                if (d1==d2) U(i,j)(d1,d2)=1.0; 
                 // if (d1==d2) U(i,j)(d1,d2)=std::polar(1.0,PI);// Global phase of -1
-                // if (d1==d2) U(i,j)(d1,d2)=rnd1; // Random global phase 
+                if (d1==d2) U(i,j)(d1,d2)=rnd1; // Random global phase 
                 // if (d1==d2) U(i,j)(d1,d2)=std::polar(1.0,dist(gen)); // Random local phase
-                if (d1==d2) U(i,j)(d1,d2)=std::polar(1.0,dist2(gen)); // Gaussian local phase
+                // if (d1==d2) U(i,j)(d1,d2)=std::polar(1.0,dist2(gen)); // Gaussian local phase
                 else U(i,j)(d1,d2)=0.0;
             }}
     
@@ -912,32 +827,33 @@ int main (int argc, char *argv[])
     
     /* ###################### */
     // Setup operators for adaptive Mgrid
-    
-    if (gen_null){// Generate near-null vectors and store them
-        printf("Generating near null vectors\n");
-        for(lvl=0;lvl<p.nlevels;lvl++){
-            printf("lvl %d\n",lvl);
-            //Compute near null vectors and normalize them
-            f_near_null(phi_null[lvl], D[lvl],lvl, quad, 500, gs_flag, p);
-            f_ortho(phi_null[lvl],lvl,p);
-            f_ortho(phi_null[lvl],lvl,p);
-            f_ortho(phi_null[lvl],lvl,p);
-            // Check orthogonality
-            f_check_ortho(phi_null[lvl],lvl,p);
-            // Compute D matrix for lower level
-            f_compute_coarse_matrix(D,phi_null[lvl], lvl, p);
-        }
-        // Write near null vectors to file
+    if (p.nlevels>0){
+        if (gen_null){// Generate near-null vectors and store them
+            printf("Generating near null vectors\n");
+            for(lvl=0;lvl<p.nlevels;lvl++){
+                printf("lvl %d\n",lvl);
+                //Compute near null vectors and normalize them
+                f_near_null(phi_null[lvl], D[lvl],lvl, quad, 500, gs_flag, p);
+                f_ortho(phi_null[lvl],lvl,p);
+                f_ortho(phi_null[lvl],lvl,p);
+                f_ortho(phi_null[lvl],lvl,p);
+                // Check orthogonality
+                f_check_ortho(phi_null[lvl],lvl,p);
+                // Compute D matrix for lower level
+                f_compute_coarse_matrix(D,phi_null[lvl], lvl, p);
+            }
+            // Write near null vectors to file
         f_write_near_null(phi_null,p);
-     }
- 
-    else {// Read near null vectors from file and compute coarse D matrix
-        f_read_near_null(phi_null,p);
-        for(lvl=0;lvl<p.nlevels;lvl++){
-            // Check orthogonality
-            f_check_ortho(phi_null[lvl],lvl,p);
-            // Compute D matrix for lower level
-            f_compute_coarse_matrix(D,phi_null[lvl], lvl, p);
+         }
+
+        else {// Read near null vectors from file and compute coarse D matrix
+            f_read_near_null(phi_null,p);
+            for(lvl=0;lvl<p.nlevels;lvl++){
+                // Check orthogonality
+                f_check_ortho(phi_null[lvl],lvl,p);
+                // Compute D matrix for lower level
+                f_compute_coarse_matrix(D,phi_null[lvl], lvl, p);
+            }
         }
     }
    // exit(1); 
