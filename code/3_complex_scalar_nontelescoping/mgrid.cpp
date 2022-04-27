@@ -21,6 +21,7 @@ typedef struct{
     double m; //mass
     int size[20]; // Lattice size 
     int n_dof[20]; // Degrees of freedom per site
+    int n_dof_scale; // Factor of increase in dof per site with level
     int block_x,block_y;
     double scale[20]; // scale factor 
     double a[20]; // Lattice spacing 
@@ -574,13 +575,11 @@ void f_check_ortho(MArr1D null,int level, params p){
             }}}
 }
 
-
-
 void f_write_near_null(MArr1D* phi_null, params p){
     // Write near null vectors to file
     FILE* pfile;
     char fname[1024];
-    sprintf(fname,"Near-null_L%d_blk%d_ndof%d.txt",p.size[0],p.block_x,p.n_dof[0]);
+    sprintf(fname,"Near-null_L%d_blk%d_ndof%d.txt",p.size[0],p.block_x,p.n_dof_scale);
     cout<<"Writing near_null vectors to file\t"<<fname<<endl;
     
     pfile = fopen (fname,"w"); 
@@ -595,7 +594,7 @@ void f_read_near_null(MArr1D* phi_null, params p){
     // Write near null vectors to file
     FILE* pfile;
     char fname[1024];
-    sprintf(fname,"Near-null_L%d_blk%d_ndof%d.txt",p.size[0],p.block_x,p.n_dof[0]);
+    sprintf(fname,"Near-null_L%d_blk%d_ndof%d.txt",p.size[0],p.block_x,p.n_dof_scale);
     cout<<"Reading near_null vectors from file"<<fname<<endl;
     
     double re,im;
@@ -607,14 +606,6 @@ void f_read_near_null(MArr1D* phi_null, params p){
                 phi_null[i](j)(d1,d2)=complex<double>(re,im);}}}
     fclose(pfile);
 }
-
-    // FILE* pfile4 = fopen ("Uphases.txt","w"); 
-    // for(int x=0; x<p.size[0]; x++) for (int y=0; y<p.size[0]; y++)
-    //     for( int j=0; j< 2; j++)
-    //         for(d1=0;d1<p.n_dof[0];d1++) for(d2=0;d2<p.n_dof[0];d2++){
-    //             fprintf(pfile4,"%f+i%f\n",real(U(x+L*y,j)(d1,d2)),imag(U(x+L*y,j)(d1,d2)));}
-    // fclose(pfile4);
-
 
 void f_plaquette(MArr2D U, params p){
 
@@ -692,8 +683,7 @@ int main (int argc, char *argv[])
     // num_iters=20;  // number of Gauss-Seidel iterations
     // p.m=0.002; // mass
     // p.nlevels=6;
-    n_dof=2;  
-
+    p.n_dof_scale=2;
     L=atoi(argv[1]);
     num_iters=atoi(argv[2]);
     block_x=atoi(argv[3]);
@@ -707,7 +697,7 @@ int main (int argc, char *argv[])
     cout<<m_square<<endl;
     
     res_threshold=1.0e-13;
-    int max_iters=10000; // max iterations of main code
+    int max_iters=20000; // max iterations of main code
     // #################### 
     
     p.a[0]=1.0;
@@ -734,7 +724,7 @@ int main (int argc, char *argv[])
         // p.a[level]=2.0*p.a[level-1];
         p.a[level]=1.0; // For adaptive Mgrid, set a=1
         p.scale[level]=1.0/(4+m_square*p.a[level]*p.a[level]);
-        p.n_dof[level]=p.n_dof[level-1]*n_dof;
+        p.n_dof[level]=p.n_dof[level-1]*p.n_dof_scale;
     }
     
     printf("\nLevel\tL\tN_dof");
@@ -754,7 +744,8 @@ int main (int argc, char *argv[])
     //     cout<<"\nInitial mean Angle "<<mean_angle; }
     // printf("M_PI %f\n",M_PI);
     mean_angle=0.0;
-    std::normal_distribution<double> dist2(mean_angle,0.2);
+    double width=0.2; // Width of the gaussian distribution
+    std::normal_distribution<double> dist2(mean_angle,width);
     
     // Single random phase
     Complex rnd1;
@@ -777,7 +768,7 @@ int main (int argc, char *argv[])
             }}
     
     f_plaquette(U,p);
-    // f_write_gaugeU(U, p);  // Write gauge field config from file
+    f_write_gaugeU(U, p);  // Write gauge field config from file
     f_read_gaugeU(U, p);   // Read gauge field config from file
     f_plaquette(U,p);
     
@@ -939,7 +930,7 @@ int main (int argc, char *argv[])
         if (resmag < res_threshold) {  // iter+1 everywhere below since iteration is complete
             printf("\nLoop breaks at iteration %d with residue %e < %e",iter+1,resmag,res_threshold); 
             printf("\nL %d\tm %f\tnlevels %d\tnum_per_level %d\tAns %d\n",L,m_square,p.nlevels,num_iters,iter+1);
-            fprintf(pfile1,"%d\t%d\t%f\t%d\t%d\t%d\t%d\t%d\n",L,num_iters,m_square,p.block_x,p.block_y,n_dof,p.nlevels,iter+1);
+            fprintf(pfile1,"%d\t%d\t%f\t%d\t%d\t%d\t%d\t%d\n",L,num_iters,m_square,p.block_x,p.block_y,p.n_dof_scale,p.nlevels,iter+1);
             f_write_op(phi[0],r[0], iter+1, pfile2, p); 
             f_write_residue(D[0],phi[0],r[0],0, iter+1, pfile3, p);
             break;}
