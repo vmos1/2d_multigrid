@@ -21,7 +21,6 @@ typedef struct{
     double m; //mass
     int size[20]; // Lattice size 
     int n_dof[20]; // Degrees of freedom per site
-    int n_dof_scale; // Factor of increase in dof per site with level
     int block_x,block_y;
     double scale[20]; // scale factor 
     double a[20]; // Lattice spacing 
@@ -575,11 +574,13 @@ void f_check_ortho(MArr1D null,int level, params p){
             }}}
 }
 
+
+
 void f_write_near_null(MArr1D* phi_null, params p){
     // Write near null vectors to file
     FILE* pfile;
     char fname[1024];
-    sprintf(fname,"Near-null_L%d_blk%d_ndof%d.txt",p.size[0],p.block_x,p.n_dof_scale);
+    sprintf(fname,"Near-null_L%d_blk%d_ndof%d.txt",p.size[0],p.block_x,p.n_dof[0]);
     cout<<"Writing near_null vectors to file\t"<<fname<<endl;
     
     pfile = fopen (fname,"w"); 
@@ -594,7 +595,7 @@ void f_read_near_null(MArr1D* phi_null, params p){
     // Write near null vectors to file
     FILE* pfile;
     char fname[1024];
-    sprintf(fname,"Near-null_L%d_blk%d_ndof%d.txt",p.size[0],p.block_x,p.n_dof_scale);
+    sprintf(fname,"Near-null_L%d_blk%d_ndof%d.txt",p.size[0],p.block_x,p.n_dof[0]);
     cout<<"Reading near_null vectors from file"<<fname<<endl;
     
     double re,im;
@@ -607,6 +608,14 @@ void f_read_near_null(MArr1D* phi_null, params p){
     fclose(pfile);
 }
 
+    // FILE* pfile4 = fopen ("Uphases.txt","w"); 
+    // for(int x=0; x<p.size[0]; x++) for (int y=0; y<p.size[0]; y++)
+    //     for( int j=0; j< 2; j++)
+    //         for(d1=0;d1<p.n_dof[0];d1++) for(d2=0;d2<p.n_dof[0];d2++){
+    //             fprintf(pfile4,"%f+i%f\n",real(U(x+L*y,j)(d1,d2)),imag(U(x+L*y,j)(d1,d2)));}
+    // fclose(pfile4);
+
+
 void f_plaquette(MArr2D U, params p){
 
     int x,y,j,d1,d2,L;
@@ -617,7 +626,6 @@ void f_plaquette(MArr2D U, params p){
     for(x=0; x<L; x++) for (y=0; y<L; y++){
         plaq+=(U(x+y*L,0)*U((x+1)%L+y*L,1)*U(x+(((y+1)%L)*L),0).adjoint()*U(x+y*L,1).adjoint()).diagonal().sum();
     }
-    plaq=plaq/(pow(L,2));
     cout<<"\nPlaquette "<<plaq<<endl;
 }
 
@@ -626,7 +634,7 @@ void f_write_gaugeU(MArr2D U, params p){
     int x,y,j,d1,d2;
     FILE* pfile;
     
-    pfile = fopen ("gauge_config_files/Uphases.txt","w"); 
+    pfile = fopen ("Uphases.txt","w"); 
     
     for(x=0; x<p.size[0]; x++) for (y=0; y<p.size[0]; y++)
         for(j=0; j< 2; j++)
@@ -641,7 +649,7 @@ void f_read_gaugeU(MArr2D U, params p){
     int x,y,j,d1,d2;
     FILE* pfile;
     
-    pfile = fopen ("gauge_config_files/Uphases.txt","r");
+    pfile = fopen ("Uphases.txt","r");
     for(x=0; x<p.size[0]; x++) for (y=0; y<p.size[0]; y++)
         for(j=0; j< 2; j++)
             for(d1=0;d1<p.n_dof[0];d1++) for(d2=0;d2<p.n_dof[0];d2++){
@@ -650,25 +658,6 @@ void f_read_gaugeU(MArr2D U, params p){
     fclose(pfile);
 }
 
-void f_read_gaugeU_heatbath(char* fname, MArr2D U, params p){
-    // Read phases from file
-    double re,im;
-    double phase;
-    int x,y,j,d1,d2;
-    FILE* pfile;
-    
-    // sprintf(fname,"gauge_config_files/phase%db3.0dat",p.size[0]);
-    cout<<"Reading gauge field from file \t"<<fname<<endl;
-    
-    pfile = fopen (fname,"r");
-    for(x=0; x<p.size[0]; x++) for (y=0; y<p.size[0]; y++)
-        for(j=0; j< 2; j++)
-            for(d1=0;d1<p.n_dof[0];d1++) for(d2=0;d2<p.n_dof[0];d2++){
-                fscanf(pfile,"%lf\n",&phase);
-                U(x+p.size[0]*y,j)(d1,d2)=std::polar(1.0,phase);}
-                // U(x+p.size[0]*y,j)(d1,d2)=complex<double>(re,im);}
-    fclose(pfile);
-}
 
 #include "modules.h"
 #include "tests.h"
@@ -683,7 +672,7 @@ int main (int argc, char *argv[])
  
     double resmag,res_threshold;
     double m_square;
-    int L, max_levels;
+    int L, max_levels, n_dof;
     int iter,lvl,d1,d2;
     int gs_flag; // Flag for gauss-seidel (=1)
     int num_iters;// Iterations of Gauss-Seidel each time
@@ -693,18 +682,16 @@ int main (int argc, char *argv[])
     // Set parameters
     gs_flag=1;  // Gauss-seidel
     // gs_flag=0; // Jacobi
-    
-    int gen_null; // Flag for generating near null vectors
-
+    n_dof=1;  
     // block_x=2;
     // block_y=2;
+    int gen_null; // Flag for generating near null vectors
+
     // L=256;
     // num_iters=20;  // number of Gauss-Seidel iterations
     // p.m=0.002; // mass
     // p.nlevels=6;
-    
-    p.n_dof_scale=2; // N_dof increase with level
-    
+
     L=atoi(argv[1]);
     num_iters=atoi(argv[2]);
     block_x=atoi(argv[3]);
@@ -718,7 +705,7 @@ int main (int argc, char *argv[])
     cout<<m_square<<endl;
     
     res_threshold=1.0e-13;
-    int max_iters=20000; // max iterations of main code
+    int max_iters=10000; // max iterations of main code
     // #################### 
     
     p.a[0]=1.0;
@@ -745,7 +732,7 @@ int main (int argc, char *argv[])
         // p.a[level]=2.0*p.a[level-1];
         p.a[level]=1.0; // For adaptive Mgrid, set a=1
         p.scale[level]=1.0/(4+m_square*p.a[level]*p.a[level]);
-        p.n_dof[level]=p.n_dof[level-1]*p.n_dof_scale;
+        p.n_dof[level]=p.n_dof[level-1]*n_dof;
     }
     
     printf("\nLevel\tL\tN_dof");
@@ -760,18 +747,17 @@ int main (int argc, char *argv[])
     
     // Generate Gaussian distribution about random mean angle
     double mean_angle;
-    // for(int i=0; i<8; i++){
-    //     mean_angle=dist(gen);
-    //     cout<<"\nInitial mean Angle "<<mean_angle; }
+    for(int i=0; i<8; i++){
+        mean_angle=dist(gen);
+        cout<<"\nInitial mean Angle "<<mean_angle; }
     // printf("M_PI %f\n",M_PI);
     mean_angle=0.0;
-    double width=0.2; // Width of the gaussian distribution
-    std::normal_distribution<double> dist2(mean_angle,width);
+    std::normal_distribution<double> dist2(mean_angle,0.1);
     
     // Single random phase
     Complex rnd1;
     rnd1=std::polar(1.0,dist(gen));
-    // cout<<endl<<rnd1<<endl;
+    cout<<endl<<rnd1<<endl;
     
     // gauge field U : (X,idx:0,1)(color d1,color d2)
     MArr2D U(p.size[0]*p.size[0],2);// Link fields at each point with two directions
@@ -790,15 +776,7 @@ int main (int argc, char *argv[])
     
     f_plaquette(U,p);
     // f_write_gaugeU(U, p);  // Write gauge field config from file
-    // f_read_gaugeU(U, p);   // Read gauge field config from file
-    
-    
-    char fname[100];
-    double beta;
-    
-    beta=3.0;
-    sprintf(fname,"gauge_config_files/phase_%d_b%0.1f.dat",p.size[0],beta); // phase_{L}_b{beta}.dat
-    f_read_gaugeU_heatbath(fname,U, p);   // Read gauge field config from file
+    f_read_gaugeU(U, p);   // Read gauge field config from file
     f_plaquette(U,p);
     
     // exit(1);
@@ -850,6 +828,7 @@ int main (int argc, char *argv[])
     r[0](3+3*L)(0)=7.5;
     
     f_compute_lvl0_matrix(D, U, p);      // Compute lvl0 D matrix=gauged Laplacian
+    // cout<<r[0](1);
     resmag=f_get_residue_mag(D[0],phi[0],r[0],0,p);
     cout<<"\nResidue "<<resmag<<endl;
     int quad=1;
@@ -865,7 +844,7 @@ int main (int argc, char *argv[])
                 f_near_null(phi_null[lvl], D[lvl],lvl, quad, 500, gs_flag, p);
                 f_ortho(phi_null[lvl],lvl,p);
                 f_ortho(phi_null[lvl],lvl,p);
-                // f_ortho(phi_null[lvl],lvl,p);
+                f_ortho(phi_null[lvl],lvl,p);
                 // Check orthogonality
                 f_check_ortho(phi_null[lvl],lvl,p);
                 // Compute D matrix for lower level
@@ -901,7 +880,28 @@ int main (int argc, char *argv[])
                     // cout<<D[lvl](x+y*p.size[lvl],k).inverse()<<endl;
             }}
         }}
-    // exit(1);
+   
+//     lvl=2;
+//     for(int x=0;x<p.size[lvl];x++) for(int y=0;y<p.size[lvl];y++){
+//         int k=0;
+//         // for(int k=0;k<5;k++){
+//                 // cout<<D[lvl](x+y*p.size[lvl],k).norm()<<'\t';
+//                 // cout<<D[lvl](x+y*p.size[lvl],k).inverse().norm()<<endl;
+//                 // cout<<"----"<<endl;
+//                 // cout<<D[lvl](x+y*p.size[lvl],k)<<endl;
+//                 printf("D matrix for lvl %d x %d, y %d direc %d\n",lvl,x,y,k);
+//                 cout<<D[lvl](x+y*p.size[lvl],k)<<endl;
+//                 cout<<D[lvl](x+y*p.size[lvl],k).inverse().norm()<<endl;
+//                 cout<<D[lvl](x+y*p.size[lvl],k).norm()<<endl;
+//         // }
+// }
+    
+
+//     for(int x=0;x<p.size[lvl];x++) for(int y=0;y<p.size[lvl];y++){
+//         cout<<phi[lvl](x+y*p.size[lvl])<<endl;
+//         cout<<r[lvl](x+y*p.size[lvl])<<endl;
+//     }
+//     exit(1);
     
     // Checks //
     for(lvl=0;lvl<p.nlevels+1;lvl++){
@@ -920,15 +920,30 @@ int main (int argc, char *argv[])
             // 1. Projection tests
             f_test1_restriction_prolongation(vec,phi_null[lvl-1],lvl-1, p, quad);
             // 2. D_fine vs D_coarse test
-            f_test2_D(vec,D,phi_null[lvl-1],lvl-1, p, quad);    }
+            f_test2_D(vec,D,phi_null[lvl-1],lvl-1, p, quad);
+        }
         // 3. Hermiticity
         f_test3_hermiticity(D[lvl],lvl,p);
         // 4. Hermiticity <v|D|v>=real
         f_test4_hermiticity_full(vec,D[lvl],lvl, p,quad);
+        
     }
     // exit(1);
-    
+    cout<<"start"<<endl;
     /* ###################### */
+
+   
+    #if 0
+    // int l_iter=2;
+    int l_iter=p.nlevels;
+    for (int ll=0; ll<l_iter; ll++) { f_restriction_res(r[ll+1],r[ll],phi[ll],D[ll], phi_null[ll], ll,p,quad); }
+    #endif  
+    
+    #if 0
+    int ll=p.nlevels;
+    cout<<ll<<endl;
+    #endif  
+   
     for(iter=0; iter < max_iters; iter++){
         if(iter%1==0) {
             printf("\nAt iteration %d, the mag residue is %g",iter,resmag);   
@@ -936,10 +951,17 @@ int main (int argc, char *argv[])
             f_write_residue(D[0],phi[0],r[0],0, iter, pfile3, p);
          }     
         
+    #if 0
+        // Testing iteration at lower levels
+        relax(D[ll],phi[ll],r[ll], ll, num_iters,p,gs_flag);
+        resmag=f_get_residue_mag(D[ll],phi[ll],r[ll],ll,p);
+    #endif  
+    
+    #if 1
         // Do Multigrid 
         if(p.nlevels>0){
         // Go down: fine -> coarse
-            for(lvl=0;lvl<p.nlevels;lvl++){
+            for(lvl=1;lvl<p.nlevels;lvl++){
                 relax(D[lvl],phi[lvl],r[lvl], lvl, num_iters,p,gs_flag); // Perform Gauss-Seidel
                 //Project to coarse lattice 
                 f_restriction_res(r[lvl+1],r[lvl],phi[lvl],D[lvl], phi_null[lvl], lvl,p,quad); 
@@ -947,19 +969,22 @@ int main (int argc, char *argv[])
             }
         
             // come up: coarse -> fine
-            for(lvl=p.nlevels;lvl>=0;lvl--){
+            for(lvl=p.nlevels;lvl>=1;lvl--){
                 relax(D[lvl],phi[lvl],r[lvl], lvl, num_iters,p,gs_flag); // Perform Gauss-Seidel
-                if(lvl>0) f_prolongate_phi(phi[lvl-1],phi[lvl], phi_null[lvl-1], lvl,p,quad);
+                if(lvl>1) f_prolongate_phi(phi[lvl-1],phi[lvl], phi_null[lvl-1], lvl,p,quad);
                 }
         }
         // No Multi-grid, just Relaxation
         else { relax(D[0],phi[0],r[0], 0, num_iters,p,gs_flag);}
         
-        resmag=f_get_residue_mag(D[0],phi[0],r[0],0,p);
-        if (resmag < res_threshold) {  // iter+1 everywhere below since iteration is complete
+        resmag=f_get_residue_mag(D[1],phi[1],r[1],1,p);
+        //resmag=f_get_residue_mag(D[0],phi[0],r[0],0,p);
+    #endif 
+
+        if (resmag < res_threshold) {// iter+1 everywhere below since iteration is complete
             printf("\nLoop breaks at iteration %d with residue %e < %e",iter+1,resmag,res_threshold); 
             printf("\nL %d\tm %f\tnlevels %d\tnum_per_level %d\tAns %d\n",L,m_square,p.nlevels,num_iters,iter+1);
-            fprintf(pfile1,"%d\t%d\t%f\t%d\t%d\t%d\t%d\t%d\n",L,num_iters,m_square,p.block_x,p.block_y,p.n_dof_scale,p.nlevels,iter+1);
+            fprintf(pfile1,"%d\t%d\t%f\t%d\t%d\t%d\t%d\t%d\n",L,num_iters,m_square,p.block_x,p.block_y,n_dof,p.nlevels,iter+1);
             f_write_op(phi[0],r[0], iter+1, pfile2, p); 
             f_write_residue(D[0],phi[0],r[0],0, iter+1, pfile3, p);
             break;}
