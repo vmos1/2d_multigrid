@@ -790,7 +790,7 @@ int main (int argc, char *argv[])
             }}
     
     f_plaquette(U,p);
-    f_write_gaugeU(U, p);  // Write gauge field config from file
+    // f_write_gaugeU(U, p);  // Write gauge field config from file
     f_read_gaugeU(U, p);   // Read gauge field config from file
     // f_read_gaugeU_heatbath(U, p);   // Read gauge field config from file
     f_plaquette(U,p);

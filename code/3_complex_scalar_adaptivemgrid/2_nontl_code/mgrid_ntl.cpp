@@ -226,13 +226,13 @@ double f_g_norm(VArr1D vec, int level, int rescale, params p){
     return g_norm;
 }
 
-void f_block_norm(VArr1D vec, int level, params p){
+void f_block_norm(VArr1D vec, int level, int quad, params p){
     // Compute norm in block and normalize each block and store in single near-null vector
     double norm;
-    int d,L,Lc,n;
+    int d,Lf,Lc,n;
     int x1,y1,xc,yc,xf,yf,xbase,ybase;
     
-    L = p.size[level];
+    Lf = p.size[level];
     Lc= p.size[level+1];
     n=p.n_dof[level];
     
@@ -243,9 +243,12 @@ void f_block_norm(VArr1D vec, int level, params p){
         
         // Compute norm by summing over block
         for(x1=0; x1<p.block_x; x1++) for(y1=0; y1<p.block_y; y1++){
-            xf=(xbase+x1)%L;
-            yf=(ybase+y1)%L;
-            norm+=vec(xf+yf*L).squaredNorm(); 
+            if (quad==1)      { xf=(xbase+x1+Lf)%Lf; yf=(ybase+y1+Lf)%Lf; }
+            else if (quad==2) { xf=(xbase-x1+Lf)%Lf; yf=(ybase+y1+Lf)%Lf; }
+            else if (quad==3) { xf=(xbase-x1+Lf)%Lf; yf=(ybase-y1+Lf)%Lf; }
+            else if (quad==4) { xf=(xbase+x1+Lf)%Lf; yf=(ybase-y1+Lf)%Lf; }
+
+            norm+=vec(xf+yf*Lf).squaredNorm(); 
             }
         norm=sqrt(norm);
        
@@ -253,7 +256,7 @@ void f_block_norm(VArr1D vec, int level, params p){
         // printf("Norm %f\n",norm);
         if (isnan(norm))  { 
             printf("Inside block_norm: Norm %.20f\n",norm);
-            cout<<vec(xf+yf*L)<<endl;
+            cout<<vec(xf+yf*Lf)<<endl;
             exit(1);
         }
         else if (norm < 1e-40) {
@@ -262,21 +265,24 @@ void f_block_norm(VArr1D vec, int level, params p){
         
         // Normalize:  Divide each value in block by norm to normalize 
         for(x1=0; x1<p.block_x; x1++) for(y1=0; y1<p.block_y; y1++){
-            xf=(xbase+x1)%L;
-            yf=(ybase+y1)%L;
-            vec(xf+yf*L)/=norm;
+            if (quad==1)      { xf=(xbase+x1+Lf)%Lf; yf=(ybase+y1+Lf)%Lf; }
+            else if (quad==2) { xf=(xbase-x1+Lf)%Lf; yf=(ybase+y1+Lf)%Lf; }
+            else if (quad==3) { xf=(xbase-x1+Lf)%Lf; yf=(ybase-y1+Lf)%Lf; }
+            else if (quad==4) { xf=(xbase+x1+Lf)%Lf; yf=(ybase-y1+Lf)%Lf; }
+            
+            vec(xf+yf*Lf)/=norm;
         }
     }
 }
 
-void f_check_block_norm(VArr1D vec, int level, params p){
+void f_check_block_norm(VArr1D vec, int level, int quad, params p){
     // Compute norm in block and normalize each block and store in single near-null vector
     double norm;
     
-    int d,L,Lc,n;
+    int d,Lf,Lc,n;
     int x1,y1,xc,yc,xf,yf,xbase,ybase;
     
-    L = p.size[level];
+    Lf = p.size[level];
     Lc= p.size[level+1];
     n=p.n_dof[level];
     
@@ -287,9 +293,12 @@ void f_check_block_norm(VArr1D vec, int level, params p){
         
         // Compute norm by summing over block
         for(x1=0; x1<p.block_x; x1++) for(y1=0; y1<p.block_y; y1++){
-            xf=(xbase+x1)%L;
-            yf=(ybase+y1)%L;
-            norm+=vec(xf+yf*L).squaredNorm(); 
+            if (quad==1)      { xf=(xbase+x1+Lf)%Lf; yf=(ybase+y1+Lf)%Lf; }
+            else if (quad==2) { xf=(xbase-x1+Lf)%Lf; yf=(ybase+y1+Lf)%Lf; }
+            else if (quad==3) { xf=(xbase-x1+Lf)%Lf; yf=(ybase-y1+Lf)%Lf; }
+            else if (quad==4) { xf=(xbase+x1+Lf)%Lf; yf=(ybase-y1+Lf)%Lf; }
+            
+            norm+=vec(xf+yf*Lf).squaredNorm(); 
             }
         norm=sqrt(norm);
         
@@ -301,14 +310,14 @@ void f_check_block_norm(VArr1D vec, int level, params p){
     }
 }
 
-void f_check_vec_norm(VArr1D vec, int level, params p, int quit_flag){
+void f_check_vec_norm(VArr1D vec, int level, int quad, params p, int quit_flag){
     // Check if the norm of a vector is null or very small
     Complex dot,ans;
     double norm;
-    int d,L,Lc,n,nc;
+    int d,Lf,Lc,n,nc;
     int x1,y1,xc,yc,xf,yf,xbase,ybase;
     
-    L=p.size[level];
+    Lf=p.size[level];
     Lc=p.size[level+1];
     n=p.n_dof[level];
     nc=p.n_dof[level+1];
@@ -321,33 +330,36 @@ void f_check_vec_norm(VArr1D vec, int level, params p, int quit_flag){
         
         // Compute norm by summing over block
         for(x1=0; x1<p.block_x; x1++) for(y1=0; y1<p.block_y; y1++){
-            xf=(xbase+x1)%L;
-            yf=(ybase+y1)%L;
-            norm+=vec(xf+yf*L).squaredNorm(); 
+            if (quad==1)      { xf=(xbase+x1+Lf)%Lf; yf=(ybase+y1+Lf)%Lf; }
+            else if (quad==2) { xf=(xbase-x1+Lf)%Lf; yf=(ybase+y1+Lf)%Lf; }
+            else if (quad==3) { xf=(xbase-x1+Lf)%Lf; yf=(ybase-y1+Lf)%Lf; }
+            else if (quad==4) { xf=(xbase+x1+Lf)%Lf; yf=(ybase-y1+Lf)%Lf; }
+            
+            norm+=vec(xf+yf*Lf).squaredNorm(); 
             }
         norm=sqrt(norm);    
         
         if (isnan(norm)){ 
             printf("Vec: Norm %.20f\n",norm);
-            cout<<vec(xf+yf*L)<<endl;
+            cout<<vec(xf+yf*Lf)<<endl;
             if (quit_flag==1) exit(1);}
         
         if (norm<1e-10){ 
             printf("Vec Norm %.20f\n",norm);
-            cout<<vec(xf+yf*L)<<endl;
+            cout<<vec(xf+yf*Lf)<<endl;
             if (quit_flag==1) exit(1);}
             }
         printf("Vector norm pass\n");
 }
 
-void f_check_null_norm(MArr1D null, int level, params p, int quit_flag){
+void f_check_null_norm(MArr1D null, int level, int quad, params p, int quit_flag){
     // Check if norm of each near-null vector is nan or small
     Complex dot,ans;
     double norm;
-    int d,L,Lc,n,nc,d1;
+    int d,Lf,Lc,n,nc,d1;
     int x1,y1,xc,yc,xf,yf,xbase,ybase;
     
-    L=p.size[level];
+    Lf=p.size[level];
     Lc=p.size[level+1];
     n=p.n_dof[level];
     nc=p.n_dof[level+1];
@@ -361,22 +373,25 @@ void f_check_null_norm(MArr1D null, int level, params p, int quit_flag){
         
         // Compute norm by summing over block
         for(x1=0; x1<p.block_x; x1++) for(y1=0; y1<p.block_y; y1++){
-            xf=(xbase+x1)%L;
-            yf=(ybase+y1)%L;
-            norm+=abs(null(xf+yf*L).row(d1).squaredNorm()); 
+            if (quad==1)      { xf=(xbase+x1+Lf)%Lf; yf=(ybase+y1+Lf)%Lf; }
+            else if (quad==2) { xf=(xbase-x1+Lf)%Lf; yf=(ybase+y1+Lf)%Lf; }
+            else if (quad==3) { xf=(xbase-x1+Lf)%Lf; yf=(ybase-y1+Lf)%Lf; }
+            else if (quad==4) { xf=(xbase+x1+Lf)%Lf; yf=(ybase-y1+Lf)%Lf; }
+            
+            norm+=abs(null(xf+yf*Lf).row(d1).squaredNorm()); 
             }
         norm=sqrt(norm);   
         
         if (isnan(norm))  { 
             printf("Check null: Norm %.20f\n",norm);
             printf("level %d d1 %d\n",level,d1);
-            cout<<null(xf+yf*L).row(d1)<<endl;
+            cout<<null(xf+yf*Lf).row(d1)<<endl;
             if (quit_flag==1) exit(1);}
         
         if (norm<1e-10)  { 
             printf("Check null: Norm %.20f\n",norm);
             printf("level %d d1 %d\n",level,d1);
-            cout<<null(xf+yf*L).row(d1)<<endl;
+            cout<<null(xf+yf*Lf).row(d1)<<endl;
             if (quit_flag==1) exit(1);}
             }
 
@@ -409,29 +424,29 @@ void f_near_null(MArr1D phi_null, MArr2D D, int level, int quad, int num_iters, 
     // Build near null vectors and normalize them
     // Null vector has size L^2. Used to project down or up.
     double norm,g_norm;
-    int L,Lc,x,y,num,d1,d2,nf,nc;
+    int Lf,Lc,x,y,num,d1,d2,nf,nc;
     int iters_per_norm;
     
-    L=p.size[level];
+    Lf=p.size[level];
     Lc=p.size[level+1]; // Coarse part only required for blocking. Can't compute for last level as level+1 doesn't exist for last level.
     
     nf=p.n_dof[level];
     nc=p.n_dof[level+1];
     
-    VArr1D phi_temp(L*L), r_zero(L*L);
-    for (int j = 0; j < L*L ; j++){  
+    VArr1D phi_temp(Lf*Lf), r_zero(Lf*Lf);
+    for (int j = 0; j < Lf*Lf ; j++){  
         phi_temp(j) = ColorVector(nf);
         r_zero(j) = ColorVector(nf); }
     
     iters_per_norm=4;
     num=num_iters/iters_per_norm; // Divide into blocks and normalize after every block
     if (num==0) num=1; // num should be at least 1
-    for(int x=0;x<L; x++) for(int y=0; y<L; y++) for(d2=0; d2 < nf; d2++) r_zero(x+y*L)(d2)=0.0;  
+    for(int x=0;x<Lf; x++) for(int y=0; y<Lf; y++) for(d2=0; d2 < nf; d2++) r_zero(x+y*Lf)(d2)=0.0;  
         // Relaxation with zero source
         for(d1=0; d1< nc; d1++){
             // Generate near null vector set for each n_dof of coarse level
             // Copy phi_null to a vector
-            for(int x=0;x<L; x++) for(int y=0; y<L; y++) phi_temp(x+y*L)=phi_null(x+y*L).row(d1); 
+            for(int x=0;x<Lf; x++) for(int y=0; y<Lf; y++) phi_temp(x+y*Lf)=phi_null(x+y*Lf).row(d1); 
             
             // g_norm=f_g_norm(phi_temp,level,0,p);
             // printf("d1: %d, pre-relax :\tGlobal norm %25.20e\n",d1,g_norm);
@@ -445,50 +460,48 @@ void f_near_null(MArr1D phi_null, MArr2D D, int level, int quad, int num_iters, 
             // printf("Post relaxation. Level %d:\tGlobal norm %25.20e\n",level,g_norm);
 
             // Block normalize near-null vectors
-            f_block_norm(phi_temp,level,p);
+            f_block_norm(phi_temp,level,quad, p);
             
-            for(int x=0;x<L; x++) for(int y=0; y<L; y++) phi_null(x+y*L).row(d1)=phi_temp(x+y*L); // Assign near-null vector to phi_null
+            for(int x=0;x<Lf; x++) for(int y=0; y<Lf; y++) phi_null(x+y*Lf).row(d1)=phi_temp(x+y*Lf); // Assign near-null vector to phi_null
         }
     
     // printf("Check null vectors are not 0\t");
-    // f_check_null_norm(phi_null,level,p,1);  
+    // f_check_null_norm(phi_null,level,quad,p,1);  
 }
 
-void f_ortho(MArr1D null, int level, params p) {
+void f_ortho(MArr1D null, int level, int quad, params p) {
     // Orthogonalize set of near-null vector w.r.t previous ones i.e. different rows of phi_null[level][X]
     Complex dot,ans;
     double norm;
     
-    int d,d1,d2,L,Lc,n,nc;
+    int d,d1,d2,Lf,Lc,n,nc;
     int x,y,x1,y1,xc,yc,xf,yf,xbase,ybase;
     
-    L=p.size[level];
+    Lf=p.size[level];
     Lc=p.size[level+1];
     
     n=p.n_dof[level];
     nc=p.n_dof[level+1];
     
-    VArr1D phi_temp1(L*L), phi_temp2(L*L);
-    for (int j = 0; j < L*L ; j++)  phi_temp1(j) = ColorVector(n); // Vector to orthogonalize
-    for (int j = 0; j < L*L ; j++)  phi_temp2(j) = ColorVector(n); // Previous vectors
+    VArr1D phi_temp1(Lf*Lf), phi_temp2(Lf*Lf);
+    for (int j = 0; j < Lf*Lf ; j++)  phi_temp1(j) = ColorVector(n); // Vector to orthogonalize
+    for (int j = 0; j < Lf*Lf ; j++)  phi_temp2(j) = ColorVector(n); // Previous vectors
     
     printf("Check1 for 0 null vectors\t");
-    f_check_null_norm(null,level,p,1); 
+    f_check_null_norm(null,level,quad, p,1); 
     
     for(int d1=0; d1 < nc; d1++){
         // printf("Orthogonalizing vector for level %d : d1 %d\n",level,d1);
         // Store null vector  to orthogonalize
-        for(int x=0;x<L; x++) for(int y=0; y<L; y++) phi_temp1(x+y*L)=null(x+y*L).row(d1);
+        for(int x=0;x<Lf; x++) for(int y=0; y<Lf; y++) phi_temp1(x+y*Lf)=null(x+y*Lf).row(d1);
         
         for(int d2=0; d2 < d1; d2++){ // Iterate over all lower d values
             // printf("\tAdding contribution for d1 %d from d2 %d\n",d1,d2);
-            for(int x=0;x<L; x++) for(int y=0; y<L; y++) phi_temp2(x+y*L)=null(x+y*L).row(d2);
+            for(int x=0;x<Lf; x++) for(int y=0; y<Lf; y++) phi_temp2(x+y*Lf)=null(x+y*Lf).row(d2);
             
             // Check nulls in phi_temp2
             // printf("Check phitemp2 before operation \t");
-            // f_check_vec_norm(phi_temp2,level,p,1);
-
-            
+            // f_check_vec_norm(phi_temp2,level,quad,p,1);
             
             for(xc=0; xc<Lc; xc++) for(yc=0; yc<Lc; yc++) {
                 xbase=p.block_x * xc;
@@ -499,13 +512,15 @@ void f_ortho(MArr1D null, int level, params p) {
                 
                 // Compute norm by summing over block
                 for(x1=0; x1<p.block_x; x1++) for(y1=0; y1<p.block_y; y1++){
-                    xf=(xbase+x1)%L;
-                    yf=(ybase+y1)%L;
+                    if (quad==1)      { xf=(xbase+x1+Lf)%Lf; yf=(ybase+y1+Lf)%Lf; }
+                    else if (quad==2) { xf=(xbase-x1+Lf)%Lf; yf=(ybase+y1+Lf)%Lf; }
+                    else if (quad==3) { xf=(xbase-x1+Lf)%Lf; yf=(ybase-y1+Lf)%Lf; }
+                    else if (quad==4) { xf=(xbase+x1+Lf)%Lf; yf=(ybase-y1+Lf)%Lf; }
                     
-                    norm+=phi_temp2(xf+yf*L).squaredNorm(); 
+                    norm+=phi_temp2(xf+yf*Lf).squaredNorm(); 
                     
-                    dot+=(phi_temp2(xf+yf*L).adjoint() * phi_temp1(xf+yf*L))(0,0); // Need the (0,0) to extract scalar from a 1x1 matrix
-                    // dot+=phi_temp2(xf+yf*L).dot(phi_temp1(xf+yf*L)) // Alternate way
+                    dot+=(phi_temp2(xf+yf*Lf).adjoint() * phi_temp1(xf+yf*Lf))(0,0); // Need the (0,0) to extract scalar from a 1x1 matrix
+                    // dot+=phi_temp2(xf+yf*Lf).dot(phi_temp1(xf+yf*Lf)) // Alternate way
                     }
                 
                 norm=sqrt(norm);
@@ -513,30 +528,33 @@ void f_ortho(MArr1D null, int level, params p) {
                 if (isnan(norm) || (norm<1e-8))  { 
                     printf("Inside ortho: Norm %.20f\n",norm);
                     printf("d1 %d, d2 %d\n",d1,d2);
-                    cout<<phi_temp2(xf+yf*L)<<endl;
+                    cout<<phi_temp2(xf+yf*Lf)<<endl;
                     exit(1);}                    
 
                 if (isnan(real(dot)) || isnan(imag(dot)))  { 
                     printf("Inside ortho: Norm %.20f\n",norm);
                     printf("d1 %d, d2 %d\n",d1,d2);
-                    cout<<phi_temp2(xf+yf*L)<<endl;
+                    cout<<phi_temp2(xf+yf*Lf)<<endl;
                     exit(1);}                    
 
                 for(x1=0; x1<p.block_x; x1++) for(y1=0; y1<p.block_y; y1++){
-                    xf=(xbase+x1)%L;
-                    yf=(ybase+y1)%L;
+                    if (quad==1)      { xf=(xbase+x1+Lf)%Lf; yf=(ybase+y1+Lf)%Lf; }
+                    else if (quad==2) { xf=(xbase-x1+Lf)%Lf; yf=(ybase+y1+Lf)%Lf; }
+                    else if (quad==3) { xf=(xbase-x1+Lf)%Lf; yf=(ybase-y1+Lf)%Lf; }
+                    else if (quad==4) { xf=(xbase+x1+Lf)%Lf; yf=(ybase-y1+Lf)%Lf; }
+                    
                     // Can avoid dividing by norm, since it is 1.
-                    phi_temp1(xf+yf*L)+= -((dot/norm)*phi_temp2(xf+yf*L)); }
+                    phi_temp1(xf+yf*Lf)+= -((dot/norm)*phi_temp2(xf+yf*Lf)); }
             }
         }
-        f_block_norm(phi_temp1,level,p);
+        f_block_norm(phi_temp1,level,quad, p);
        
         // Store null vector back in row of phi_null 
-        for(int x=0;x<L; x++) for(int y=0; y<L; y++) null(x+y*L).row(d1)=phi_temp1(x+y*L);
+        for(int x=0;x<Lf; x++) for(int y=0; y<Lf; y++) null(x+y*Lf).row(d1)=phi_temp1(x+y*Lf);
     }
 }    
 
-void f_check_ortho(MArr1D null,int level, params p){
+void f_check_ortho(MArr1D null,int level, int quad, params p){
 
     Complex dot,ans;
 
@@ -564,8 +582,11 @@ void f_check_ortho(MArr1D null,int level, params p){
 
                 // Compute norm by summing over block
                 for(x1=0; x1<p.block_x; x1++) for(y1=0; y1<p.block_y; y1++){
-                    xf=(xbase+x1)%Lf;
-                    yf=(ybase+y1)%Lf;
+                    if (quad==1)      { xf=(xbase+x1+Lf)%Lf; yf=(ybase+y1+Lf)%Lf; }
+                    else if (quad==2) { xf=(xbase-x1+Lf)%Lf; yf=(ybase+y1+Lf)%Lf; }
+                    else if (quad==3) { xf=(xbase-x1+Lf)%Lf; yf=(ybase-y1+Lf)%Lf; }
+                    else if (quad==4) { xf=(xbase+x1+Lf)%Lf; yf=(ybase-y1+Lf)%Lf; }
+                    
                     ans+=null(xf+yf*Lf).row(d1).dot(null(xf+yf*Lf).row(d2));
                     }
                 if(abs(ans)>1e-12){
@@ -795,9 +816,10 @@ int main (int argc, char *argv[])
     
     char fname[100];
     double beta;
-    int quad=1; 
-    
-    beta=10.0;
+    int quad=2; 
+    int t_flag=0;
+
+    beta=6.0;
     sprintf(fname,"gauge_config_files/phase_%d_b%0.1f.dat",p.size[0],beta); // phase_{L}_b{beta}.dat
     f_read_gaugeU_heatbath(fname,U, p);   // Read gauge field config from file
     f_plaquette(U,p);
@@ -819,26 +841,6 @@ int main (int argc, char *argv[])
                 r[i](j)(d1)=dist(gen);
             }
       }}
-    
-    // Arrays for telescoping procedure. 4 arrays for last layer
-    VArr1D phi_tel[4],r_tel[4];
-    int j_size=p.size[p.nlevels];
-    int j_ndof=p.n_dof[p.nlevels]; // dof in lowest levels
-    
-    for (int i=0; i<4; i++){
-        phi_tel[i]=VArr1D(j_size*j_size);
-        r_tel[i]=VArr1D(j_size*j_size);
-        for (int j = 0; j < j_size*j_size ; j++){
-            phi_tel[i](j) = ColorVector(j_ndof);
-            r_tel[i](j) = ColorVector(j_ndof);
-            // Initialize
-            for(int d1=0;d1<j_ndof;d1++){
-                phi_tel[i](j)(d1) = 0.0;
-                r_tel[i](j)(d1)=0.0;
-            }
-          }
-    }
-    // exit(1);
     
     // D: Sparse matrix with 5 non-zero elements for each site (site + 4 ngbs in 2D)
     MArr2D D[20];
@@ -863,7 +865,47 @@ int main (int argc, char *argv[])
             for(int d1=0;d1<p.n_dof[i+1];d1++) for(int d2=0;d2<p.n_dof[i];d2++){
                 phi_null[i](j)(d1,d2)=dist(gen);}
     }}
- 
+        
+    // Arrays for telescoping procedure. 4 arrays for last layer
+    VArr1D phi_tel[4],r_tel[4];
+    int j_size=p.size[p.nlevels];
+    int j_ndof=p.n_dof[p.nlevels]; // dof in lowest levels
+    
+    for (int i=0; i<4; i++){
+        phi_tel[i]=VArr1D(j_size*j_size);
+        r_tel[i]=VArr1D(j_size*j_size);
+        for (int j = 0; j < j_size*j_size ; j++){
+            phi_tel[i](j) = ColorVector(j_ndof);
+            r_tel[i](j) = ColorVector(j_ndof);
+            // Initialize
+            for(int d1=0;d1<j_ndof;d1++){
+                phi_tel[i](j)(d1) = 0.0;
+                r_tel[i](j)(d1)=0.0;
+            }}}
+    
+    MArr2D D_tel[4];
+    for(int i=0; i<4; i++){
+        D_tel[i]=MArr2D(j_size*j_size,5);
+            for (int j = 0; j < j_size*j_size; j++){
+                for (int k = 0; k < 5; k++){
+                    D_tel[i](j, k) = ColorMatrix(j_ndof,j_ndof);
+                        // Initialize
+                        for(int d1=0; d1<j_ndof; d1++){
+                            for(int d2=0; d2<j_ndof; d2++)
+                                D_tel[i](j, k)(d1,d2) = 1.0;}
+                        }}}
+    MArr1D phi_null_tel[4];
+    int j_size2=p.size[p.nlevels-1];
+    int j_ndof2=p.n_dof[p.nlevels-1]; // dof in lowest levels
+    for(int i=0; i<4; i++){
+        phi_null_tel[i]=MArr1D(j_size2*j_size2); 
+        for (int j = 0; j < j_size2*j_size2; j++){
+            phi_null_tel[i](j) = ColorMatrix(j_ndof,j_ndof2);
+            // Random initialization 
+            for(int d1=0;d1<j_ndof;d1++) for(int d2=0;d2<j_ndof2;d2++){
+                phi_null_tel[i](j)(d1,d2)=dist(gen);}
+    }}
+    
     // Define sources
     r[0](0)(0)=1.0;
     r[0](1+0*L)(0)=complex<double>(2.0,2.0);
@@ -881,31 +923,45 @@ int main (int argc, char *argv[])
             printf("Generating near null vectors\n");
             for(lvl=0;lvl<p.nlevels;lvl++){
                 printf("lvl %d\n",lvl);
-                //Compute near null vectors and normalize them
-                f_near_null(phi_null[lvl], D[lvl],lvl, quad, 500, gs_flag, p);
-                f_ortho(phi_null[lvl],lvl,p);
-                f_ortho(phi_null[lvl],lvl,p);
-                // f_ortho(phi_null[lvl],lvl,p);
-                // Check orthogonality
-                f_check_ortho(phi_null[lvl],lvl,p);
-                // Compute D matrix for lower level
-                f_compute_coarse_matrix(D,phi_null[lvl], lvl, p);
+                
+                if ((t_flag==1) && (lvl==p.nlevels-1)){ 
+                    cout<<"near null for telescoping"<<lvl<<endl;
+                    for(int i=0; i<4; i++){
+                        f_near_null(phi_null_tel[i], D[lvl],lvl, quad, 500, gs_flag, p);
+                        f_ortho(phi_null_tel[i],lvl,quad,p);
+                        f_ortho(phi_null_tel[i],lvl,quad,p);
+                        // Check orthogonality
+                        f_check_ortho(phi_null_tel[i],lvl,quad,p);
+                        // Compute D matrix for lower level
+                        f_compute_coarse_matrix(D_tel[i],D[lvl],phi_null_tel[i], lvl, quad, p);    
+                }}
+                else {
+                    //Compute near null vectors and ortho-normalize them
+                    f_near_null(phi_null[lvl], D[lvl],lvl, quad, 500, gs_flag, p);
+                    f_ortho(phi_null[lvl],lvl,quad,p);
+                    f_ortho(phi_null[lvl],lvl,quad,p);
+                    // f_ortho(phi_null[lvl],lvl,quad,p);
+                    // Check orthogonality
+                    f_check_ortho(phi_null[lvl],lvl,quad,p);
+                    // Compute D matrix for lower level
+                    // f_compute_coarse_matrix(D,phi_null[lvl], lvl, p);
+                    f_compute_coarse_matrix(D[lvl+1],D[lvl],phi_null[lvl], lvl, quad, p);
+                    }
             }
             // Write near null vectors to file
-        f_write_near_null(phi_null,p);
-         }
-
+        f_write_near_null(phi_null,p);  }
         else {// Read near null vectors from file and compute coarse D matrix
             f_read_near_null(phi_null,p);
             for(lvl=0;lvl<p.nlevels;lvl++){
                 // Check orthogonality
-                f_check_ortho(phi_null[lvl],lvl,p);
+                f_check_ortho(phi_null[lvl],lvl,quad,p);
                 // Compute D matrix for lower level
-                f_compute_coarse_matrix(D,phi_null[lvl], lvl, p);
+                // f_compute_coarse_matrix(D,phi_null[lvl], lvl, p);
+                f_compute_coarse_matrix(D[lvl+1],D[lvl],phi_null[lvl], lvl, quad, p);
             }
         }
     }
-   // exit(1); 
+    // exit(1); 
     
     // Test D matrix values
     for(lvl=0;lvl<p.nlevels+1;lvl++){
@@ -946,13 +1002,13 @@ int main (int argc, char *argv[])
         // 4. Hermiticity <v|D|v>=real
         f_test4_hermiticity_full(vec,D[lvl],lvl, p,quad);
     }
-    // exit(1);
+    exit(1);
     
     /* ###################### */
     
     int n_copies=4;
-    int t_flag=1;
-    quad=1;
+        
+    
     printf("\nTelescoping flag is %d\n",t_flag);
     printf("jsize: %d\tjndof: %d\n",j_size,j_ndof);
     for(iter=0; iter < max_iters; iter++){

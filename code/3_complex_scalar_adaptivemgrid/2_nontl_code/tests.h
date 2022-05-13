@@ -62,9 +62,6 @@ void f_test2_D(VArr1D vec,MArr2D* D,MArr1D phi_null,int level, params p, int qua
 
     Lf=p.size[level];
     Lc=p.size[level+1];
-    
-    Lf=p.size[level];
-    Lc=p.size[level+1];
     nf=p.n_dof[level];
     nc=p.n_dof[level+1];
     

@@ -703,7 +703,7 @@ int main (int argc, char *argv[])
     // p.m=0.002; // mass
     // p.nlevels=6;
     
-    p.n_dof_scale=2; // N_dof increase with level
+    p.n_dof_scale=1; // N_dof increase with level
     
     L=atoi(argv[1]);
     num_iters=atoi(argv[2]);
@@ -718,7 +718,7 @@ int main (int argc, char *argv[])
     cout<<m_square<<endl;
     
     res_threshold=1.0e-13;
-    int max_iters=20000; // max iterations of main code
+    int max_iters=50000; // max iterations of main code
     // #################### 
     
     p.a[0]=1.0;
@@ -796,7 +796,7 @@ int main (int argc, char *argv[])
     char fname[100];
     double beta;
     
-    beta=10.0;
+    beta=6.0;
     sprintf(fname,"gauge_config_files/phase_%d_b%0.1f.dat",p.size[0],beta); // phase_{L}_b{beta}.dat
     f_read_gaugeU_heatbath(fname,U, p);   // Read gauge field config from file
     f_plaquette(U,p);
