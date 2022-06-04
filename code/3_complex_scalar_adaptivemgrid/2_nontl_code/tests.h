@@ -54,12 +54,15 @@ void f_test1_restriction_prolongation(VArr1D vec, MArr1D phi_null, int level, pa
     }
 
 void f_test2_D(VArr1D vec,MArr2D* D,MArr1D phi_null,int level, params p, int quad){
-    // Test: (D_c - P^dagger D_f P) v_c = 0
+    // Test: (D_c - P D_f P^dagger) v_c = 0
     
     int Lf,Lc,nf,nc,d1;
     int x,y;
     double Epsilon=1.0e-12;
 
+    Lf=p.size[level];
+    Lc=p.size[level+1];
+    
     Lf=p.size[level];
     Lc=p.size[level+1];
     nf=p.n_dof[level];
@@ -80,13 +83,13 @@ void f_test2_D(VArr1D vec,MArr2D* D,MArr1D phi_null,int level, params p, int qua
     
     printf("Test2\t");
     
-    // Step 1: v_f1= P vec
+    // Step 1: v_f1= P^dagger vec
     f_prolongation(vec_f1,vec,phi_null,level+1, p, quad);
     
-    // Step 2: v_f2 = D_f v_f1
+    // Step 2: v_f2 = D_f . v_f1
     f_apply_D(vec_f2,vec_f1,D[level],level,p, quad);
 
-    // Step 3: v_c1 = Pdagger v_f2 
+    // Step 3: v_c1 = P v_f2 
     f_restriction(vec_c1, vec_f2, phi_null, level, p, quad);
     
     // Step 4: v_c2=D_c vec
@@ -180,3 +183,49 @@ void f_test4_hermiticity_full(VArr1D vec, MArr2D D,int level, params p, int quad
     }
 }
 
+void f_gauge_transform(MArr2D U, VArr1D omega, params p){
+    // Generate U field for a general gauge transformation
+    int x,y,j,d1,d2,L;
+    int site1,site2;
+    L=p.size[0];
+   
+    for(x=0; x<p.size[0]; x++) for (y=0; y<p.size[0]; y++){
+        site1=x+y*L;
+        site2=(x+1)%L+y*L;
+        // Only for U1
+        // U(site1,0)(d1,d2)=std::polar(1.0,(phase(site1)-phase(site2)))*U(site1,0)(d1,d2);
+        U(site1,0)=omega(site1)*U(site1,0)*omega(site2).adjoint();
+        site2=x+((y+1)%L)*L;
+        // Only for U1
+        // U(site1,1)(d1,d2)=std::polar(1.0,(phase(site1)-phase(site2)))*U(site1,1)(d1,d2);
+        U(site1,1)=omega(site1)*U(site1,1)*omega(site2).adjoint();
+    // }
+}
+}
+
+void f_init_gauge(VArr1D phase, VArr1D omega, params p, std::mt19937& gen, std::uniform_real_distribution<double>& dist ){
+   // Create a random matrix of phases
+    
+    for(int i=0; i< p.size[0]*p.size[0]; i++){
+        for(int d=0; d<p.n_dof[0]; d++){
+            // phase(i)(d)=complex<double>(PI,0);
+            // phase(i)(d)=complex<double>(PI/4,0);
+            phase(i)(d)=dist(gen);
+            omega(i)(d)=std::polar(1.0,real(phase(i)(d)));
+    }}
+}
+
+void f_rotate_vector(VArr1D vec_2, VArr1D vec_1, VArr1D omega, int lvl, params p, bool forward){
+    
+    for(int i=0; i< p.size[lvl]*p.size[lvl]; i++){
+        for(int d=0; d<p.n_dof[lvl]; d++){
+            if      (forward==true) vec_2(i)(d)=     omega(i)(d) *vec_1(i)(d);  
+            else if (forward==false)  vec_2(i)(d)=conj(omega(i)(d))*vec_1(i)(d);  
+        }}
+    
+    // for(int i=0; i< p.size[lvl]*p.size[lvl]; i++){
+    //     if      (forward==true) vec_2[lvl](i)=omega(i)          *vec_1[lvl](i);  
+    //     else if (forward==false)  vec_2[lvl](i)=omega(i).adjoint()*vec_1[lvl](i);  
+    //     }
+    
+    }

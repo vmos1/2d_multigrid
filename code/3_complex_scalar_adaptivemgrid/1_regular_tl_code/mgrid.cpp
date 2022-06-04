@@ -158,8 +158,8 @@ double f_get_residue_mag(MArr2D D, VArr1D phi, VArr1D b, int level, params p){
         res+=rtemp(x+y*L).squaredNorm(); // sum of absolute values.
     }
     for(int x=0; x<L; x++) for(int y=0;y<L; y++) bnorm+=b(x+y*L).squaredNorm();
- 
-    // Return sqrt(res)/ norm(b)
+    
+    // Return norm(res)/ norm(b)
     return sqrt(res)/sqrt(bnorm);
 }
 
@@ -180,14 +180,6 @@ void relax(MArr2D D, VArr1D phi, VArr1D res, int level, int num_iter, params p, 
     for(i=0; i<num_iter; i++){
         for(x=0; x<L; x++)
             for(y=0; y<L; y++){
-                norm=D(x+y*L,0).inverse().norm();
-                if (isnan(norm))  {  
-                // if (1>0){
-                    printf("Error: Nan in D0 inverse %e \n",norm);
-                    cout<<"D0 matrix"<<D(x+y*L,0)<<endl;
-                    exit(1);
-                }
-                
                 phitemp(x+y*L)= (-1.0*(D(x+y*L,0).inverse()))*
                                 ( D(x+y*L,1)*phi((x+1)%L+y*L)
                                 + D(x+y*L,2)*phi((x-1+L)%L+y*L) 
@@ -447,7 +439,9 @@ void f_near_null(MArr1D phi_null, MArr2D D, int level, int quad, int num_iters, 
             // Block normalize near-null vectors
             f_block_norm(phi_temp,level,p);
             
-            for(int x=0;x<L; x++) for(int y=0; y<L; y++) phi_null(x+y*L).row(d1)=phi_temp(x+y*L); // Assign near-null vector to phi_null
+            // for(int x=0;x<L; x++) for(int y=0; y<L; y++) phi_null(x+y*L).row(d1)=phi_temp(x+y*L); // Assign near-null vector to phi_null
+            // Conjugate phi_null. This is to ensure gauge invariance. By storing as an nc x nf matrix, you are already transposing it. Now, also need to conjugate it.
+            for(int x=0; x<L; x++) for(int y=0; y<L; y++) phi_null(x+y*L).row(d1)=phi_temp(x+y*L).conjugate();      // Assign near-null vector to phi_null
         }
     
     // printf("Check null vectors are not 0\t");
@@ -703,7 +697,7 @@ int main (int argc, char *argv[])
     // p.m=0.002; // mass
     // p.nlevels=6;
     
-    p.n_dof_scale=1; // N_dof increase with level
+    
     
     L=atoi(argv[1]);
     num_iters=atoi(argv[2]);
@@ -726,6 +720,7 @@ int main (int argc, char *argv[])
     p.size[0]=p.L;
     p.scale[0]=1.0/(4.0+m_square*p.a[0]*p.a[0]);// 1/(4+m^2 a^2) 
     p.n_dof[0]=1;
+    p.n_dof_scale=2; // N_dof increase with level (not used)
     p.block_x=block_x;
     p.block_y=block_y;
     
@@ -745,7 +740,8 @@ int main (int argc, char *argv[])
         // p.a[level]=2.0*p.a[level-1];
         p.a[level]=1.0; // For adaptive Mgrid, set a=1
         p.scale[level]=1.0/(4+m_square*p.a[level]*p.a[level]);
-        p.n_dof[level]=p.n_dof[level-1]*p.n_dof_scale;
+        // p.n_dof[level]=p.n_dof[level-1]*p.n_dof_scale;
+        p.n_dof[level]=2; // Fixing ndof at lower levels to 2
     }
     
     printf("\nLevel\tL\tN_dof");
@@ -784,7 +780,7 @@ int main (int argc, char *argv[])
                 // if (d1==d2) U(i,j)(d1,d2)=std::polar(1.0,PI);// Global phase of -1
                 // if (d1==d2) U(i,j)(d1,d2)=rnd1; // Random global phase 
                 // if (d1==d2) U(i,j)(d1,d2)=std::polar(1.0,dist(gen)); // Random local phase
-                if (d1==d2) U(i,j)(d1,d2)=std::polar(1.0,dist2(gen)); // Gaussian local phase
+                // if (d1==d2) U(i,j)(d1,d2)=std::polar(1.0,dist2(gen)); // Gaussian local phase
                 else U(i,j)(d1,d2)=0.0;
             }}
     
@@ -868,6 +864,12 @@ int main (int argc, char *argv[])
                 // f_ortho(phi_null[lvl],lvl,p);
                 // Check orthogonality
                 f_check_ortho(phi_null[lvl],lvl,p);
+                // // Conjugate phi_null
+                // for(int i=0; i< p.size[lvl]*p.size[lvl]; i++){
+                //     for(int d1=0; d1<p.n_dof[lvl]; d1++)  for(int d2=0; d2<p.n_dof[lvl+1]; d2++){
+                //          phi_null[lvl](i)(d1,d2)=conj(phi_null[lvl](i)(d1,d2));  
+                //     }}
+                
                 // Compute D matrix for lower level
                 f_compute_coarse_matrix(D,phi_null[lvl], lvl, p);
             }
