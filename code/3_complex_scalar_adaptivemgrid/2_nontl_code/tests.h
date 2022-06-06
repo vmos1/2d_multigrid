@@ -140,7 +140,7 @@ void f_test3_hermiticity(MArr2D D, int level, params p){
 
             if ((fabs(real(a5)-real(a6))>Epsilon) | (fabs(imag(a5)-imag(a6))>Epsilon)){// Diagonal matrix must be Hermitian
             // if(1>0){
-                printf("%d,%d-> %d,%d\t",x,y,x,(y+1)%l);
+                printf("%d,%d-> %d,%d\t",x,y,x,y);
                 printf("Diagonal Diff:%20.20e\t %20.20e+i %20.20e, %20.20e+i %20.20e\n",abs(a5)-abs(a6),real(a5),imag(a5),real(a6),imag(a6));}
                 
             // if (fabs(imag(a0))>Epsilon){// Diagonal elements must be real
@@ -179,7 +179,7 @@ void f_test4_hermiticity_full(VArr1D vec, MArr2D D,int level, params p, int quad
         }}
     if (fabs(imag(a1))>Epsilon){
     // if (1>0){
-        printf("Answer %f+i %f\n",real(a1),imag(a1));
+        printf("Answer is complex:  %f+i %f\n",real(a1),imag(a1));
     }
 }
 

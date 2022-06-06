@@ -234,6 +234,29 @@ double f_g_norm(VArr1D vec, int level, int rescale, params p){
     return g_norm;
 }
 
+void f_test_block(int level, int quad, params p){
+    // Compute norm in block and normalize each block and store in single near-null vector
+    int d,L,Lc,n;
+    int x1,y1,xc,yc,xf,yf;
+    site base;
+
+    L = p.size[level];
+    Lc= p.size[level+1];
+    
+    for(xc=0; xc<Lc; xc++) for(yc=0; yc<Lc; yc++) {
+        f_get_base_site(base, quad, xc, yc, L, p);
+        printf("%d,%d->%d,%d base:%d,%d\t\t",xc,yc,p.block_x*xc,p.block_y*yc,base.x,base.y);
+        
+        // Compute norm by summing over block
+        for(x1=0; x1<p.block_x; x1++) for(y1=0; y1<p.block_y; y1++){
+            xf=(base.x+x1)%L;
+            yf=(base.y+y1)%L;
+            printf("%d,%d  ;",xf,yf);
+            }
+        cout<<endl;
+    }
+}
+        
 void f_block_norm(VArr1D vec, int level, int quad, params p){
     // Compute norm in block and normalize each block and store in single near-null vector
     double norm;
@@ -255,6 +278,8 @@ void f_block_norm(VArr1D vec, int level, int quad, params p){
         for(x1=0; x1<p.block_x; x1++) for(y1=0; y1<p.block_y; y1++){
             xf=(base.x+x1)%L;
             yf=(base.y+y1)%L;
+            
+            printf("%d,%d\t %d,%d\t %d,%d\n",xf,yf,xc,yc,base.x,base.y);
             norm+=vec(xf+yf*L).squaredNorm(); 
             }
         norm=sqrt(norm);
@@ -731,8 +756,6 @@ int main (int argc, char *argv[])
     // p.m=0.002; // mass
     // p.nlevels=6;
     
-    
-    
     L=atoi(argv[1]);
     num_iters=atoi(argv[2]);
     block_x=atoi(argv[3]);
@@ -822,7 +845,6 @@ int main (int argc, char *argv[])
     // f_write_gaugeU(U, p);  // Write gauge field config from file
     // f_read_gaugeU(U, p);   // Read gauge field config from file
     
-    
     char fname[100];
     double beta;
     
@@ -883,6 +905,11 @@ int main (int argc, char *argv[])
     resmag=f_get_residue_mag(D[0],phi[0],r[0],0,p);
     cout<<"\nResidue "<<resmag<<endl;
     int quad=2;
+    
+    // for(lvl=0;lvl<p.nlevels;lvl++){
+    //     cout<<"level 1"<<endl;
+    //     f_test_block(lvl,4, p); }
+    // exit(1);
     
     /* ###################### */
     // Setup operators for adaptive Mgrid
@@ -956,13 +983,14 @@ int main (int argc, char *argv[])
             // 1. Projection tests
             f_test1_restriction_prolongation(vec,phi_null[lvl-1],lvl-1, p, quad);
             // 2. D_fine vs D_coarse test
-            f_test2_D(vec,D,phi_null[lvl-1],lvl-1, p, quad);    }
+            // f_test2_D(vec,D,phi_null[lvl-1],lvl-1, p, quad);    
+        }
         // 3. Hermiticity
-        f_test3_hermiticity(D[lvl],lvl,p);
+        // f_test3_hermiticity(D[lvl],lvl,p);
         // 4. Hermiticity <v|D|v>=real
         f_test4_hermiticity_full(vec,D[lvl],lvl, p,quad);
     }
-    // exit(1);
+    exit(1);
     
     /* ###################### */
     for(iter=0; iter < max_iters; iter++){
