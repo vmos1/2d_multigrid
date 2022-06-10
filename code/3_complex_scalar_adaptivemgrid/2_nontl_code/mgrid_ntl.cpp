@@ -278,8 +278,6 @@ void f_block_norm(VArr1D vec, int level, int quad, params p){
         for(x1=0; x1<p.block_x; x1++) for(y1=0; y1<p.block_y; y1++){
             xf=(base.x+x1)%L;
             yf=(base.y+y1)%L;
-            
-            printf("%d,%d\t %d,%d\t %d,%d\n",xf,yf,xc,yc,base.x,base.y);
             norm+=vec(xf+yf*L).squaredNorm(); 
             }
         norm=sqrt(norm);
@@ -777,7 +775,7 @@ int main (int argc, char *argv[])
     p.size[0]=p.L;
     p.scale[0]=1.0/(4.0+m_square*p.a[0]*p.a[0]);// 1/(4+m^2 a^2) 
     p.n_dof[0]=1;
-    p.n_dof_scale=2; // N_dof increase with level (not used)
+    p.n_dof_scale=1; // N_dof at higher levels
     p.block_x=block_x;
     p.block_y=block_y;
     
@@ -798,7 +796,7 @@ int main (int argc, char *argv[])
         p.a[level]=1.0; // For adaptive Mgrid, set a=1
         p.scale[level]=1.0/(4+m_square*p.a[level]*p.a[level]);
         // p.n_dof[level]=p.n_dof[level-1]*p.n_dof_scale;
-        p.n_dof[level]=2; // Fixing ndof at lower levels to 2
+        p.n_dof[level]=p.n_dof_scale; // Fixing ndof at lower levels to 2
     }
     
     printf("\nLevel\tL\tN_dof");
@@ -892,6 +890,7 @@ int main (int argc, char *argv[])
             phi_null[i](j) = ColorMatrix(p.n_dof[i+1],p.n_dof[i]);
             // Random initialization 
             for(int d1=0;d1<p.n_dof[i+1];d1++) for(int d2=0;d2<p.n_dof[i];d2++){
+                // phi_null[i](j)(d1,d2)=1.0;}
                 phi_null[i](j)(d1,d2)=dist(gen);}
     }}
  
@@ -904,12 +903,7 @@ int main (int argc, char *argv[])
     f_compute_lvl0_matrix(D, U, p);      // Compute lvl0 D matrix=gauged Laplacian
     resmag=f_get_residue_mag(D[0],phi[0],r[0],0,p);
     cout<<"\nResidue "<<resmag<<endl;
-    int quad=2;
-    
-    // for(lvl=0;lvl<p.nlevels;lvl++){
-    //     cout<<"level 1"<<endl;
-    //     f_test_block(lvl,4, p); }
-    // exit(1);
+    int quad=4;
     
     /* ###################### */
     // Setup operators for adaptive Mgrid
@@ -951,6 +945,7 @@ int main (int argc, char *argv[])
    // exit(1); 
     
     // Test D matrix values
+    cout<<"D matrix"<<endl;
     for(lvl=0;lvl<p.nlevels+1;lvl++){
         for(int x=0;x<p.size[lvl];x++) for(int y=0;y<p.size[lvl];y++){
             // int k=0;
@@ -961,9 +956,12 @@ int main (int argc, char *argv[])
                     cout<<D[lvl](x+y*p.size[lvl],k).inverse().norm()<<endl;
                     cout<<"----"<<endl;
                     cout<<D[lvl](x+y*p.size[lvl],k)<<endl;
-                    // cout<<D[lvl](x+y*p.size[lvl],k).inverse()<<endl;
+                    cout<<D[lvl](x+y*p.size[lvl],k).inverse()<<endl; }
+                // if((D[lvl](x+y*p.size[lvl],k)).squaredNorm()<1e-10){
+                //     printf("%d, %d,%d %d",lvl,x,y,k);
+                //     cout<<D[lvl](x+y*p.size[lvl],k)<<endl; }
             }}
-        }}
+        }
     // exit(1);
     
     // Checks //
@@ -983,14 +981,14 @@ int main (int argc, char *argv[])
             // 1. Projection tests
             f_test1_restriction_prolongation(vec,phi_null[lvl-1],lvl-1, p, quad);
             // 2. D_fine vs D_coarse test
-            // f_test2_D(vec,D,phi_null[lvl-1],lvl-1, p, quad);    
+            f_test2_D(vec,D,phi_null[lvl-1],lvl-1, p, quad);    
         }
         // 3. Hermiticity
-        // f_test3_hermiticity(D[lvl],lvl,p);
+        f_test3_hermiticity(D[lvl],lvl,p);
         // 4. Hermiticity <v|D|v>=real
         f_test4_hermiticity_full(vec,D[lvl],lvl, p,quad);
     }
-    exit(1);
+    // exit(1);
     
     /* ###################### */
     for(iter=0; iter < max_iters; iter++){

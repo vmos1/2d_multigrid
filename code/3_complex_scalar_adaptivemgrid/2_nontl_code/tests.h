@@ -132,16 +132,16 @@ void f_test3_hermiticity(MArr2D D, int level, params p){
             
             if ((fabs(real(a1)-real(a2))>Epsilon) | (fabs(imag(a1)-imag(a2))>Epsilon)){
                 printf("%d,%d-> %d,%d\t",x,y,(x+1)%l,y);
-                printf("Diff:%20.20e\t %20.20e+i %20.20e, %20.20e+i %20.20e\n",abs(a1)-abs(a2),real(a1),imag(a1),real(a2),imag(a2));}
+                printf("Diff:%20.20e+i %20.20e\t %20.20e+i %20.20e, %20.20e+i %20.20e\n",real(a1)-real(a2),imag(a1)-imag(a2),real(a1),imag(a1),real(a2),imag(a2));}
 
             if ((fabs(real(a3)-real(a4))>Epsilon) | (fabs(imag(a3)-imag(a4))>Epsilon)){
                 printf("%d,%d-> %d,%d\t",x,y,x,(y+1)%l);
-                printf("Diff:%20.20e\t %20.20e+i %20.20e, %20.20e+i %20.20e\n",abs(a3)-abs(a4),real(a3),imag(a3),real(a4),imag(a4));}
+                printf("Diff:%20.20e+i %20.20e\t %20.20e+i %20.20e, %20.20e+i %20.20e\n",real(a3)-real(a4),imag(a3)-imag(a4),real(a3),imag(a3),real(a4),imag(a4));}
 
             if ((fabs(real(a5)-real(a6))>Epsilon) | (fabs(imag(a5)-imag(a6))>Epsilon)){// Diagonal matrix must be Hermitian
             // if(1>0){
                 printf("%d,%d-> %d,%d\t",x,y,x,y);
-                printf("Diagonal Diff:%20.20e\t %20.20e+i %20.20e, %20.20e+i %20.20e\n",abs(a5)-abs(a6),real(a5),imag(a5),real(a6),imag(a6));}
+                printf("Diagonal Diff:%20.20e+i %20.20e\t %20.20e+i%20.20e, %20.20e+i%20.20e\n",real(a5)-real(a6),imag(a5)-imag(a6),real(a5),imag(a5),real(a6),imag(a6));}
                 
             // if (fabs(imag(a0))>Epsilon){// Diagonal elements must be real
                 // printf("Diagonal %d,%d\t%20.20e+i %20.20e\n",x,y,real(a0),imag(a0));}

@@ -64,9 +64,11 @@ void f_compute_coarse_matrix(MArr2D* D, MArr1D phi_null, int level, int quad, pa
         
         for(d1=0;d1<nc;d1++) for(d2=0; d2<nc; d2++) for (i=0;i<5;i++) D[level+1](xc+yc*Lc,i)(d1,d2)=Complex(0,0); 
         // Compute norm by summing over block
+        
         for(x1=0; x1<p.block_x; x1++) for(y1=0; y1<p.block_y; y1++){
             xf=(base.x+x1)%Lf;
             yf=(base.y+y1)%Lf;
+            // printf("%d,%d\t%d,%d\t%d,%d \t\t %d,%d\n",xf,yf,base.x,base.y,xc,yc,base.y+p.block_y-1,yf);
             
             // Diagonal terms
             
@@ -74,22 +76,22 @@ void f_compute_coarse_matrix(MArr2D* D, MArr1D phi_null, int level, int quad, pa
             D[level+1](xc+yc*Lc,0)     += phi_null(xf+yf*Lf) * D[level](xf+yf*Lf,0)* phi_null(xf+yf*Lf).adjoint();
             
             // cross-site, same-block contribution
-            if (xf!=(base.x+p.block_x-1))
+            if (xf!=(base.x+p.block_x-1)%Lf)
                 D[level+1](xc+yc*Lc,0) += phi_null(xf+yf*Lf) * D[level](xf+yf*Lf,1)* phi_null((xf+1  )%Lf+yf*Lf).adjoint();
             if (xf!=base.x)
                 D[level+1](xc+yc*Lc,0) += phi_null(xf+yf*Lf) * D[level](xf+yf*Lf,2)* phi_null((xf-1+Lf)%Lf+yf*Lf).adjoint();
-            if (yf!=(base.y+p.block_y-1))
+            if (yf!=(base.y+p.block_y-1)%Lf)
                 D[level+1](xc+yc*Lc,0) += phi_null(xf+yf*Lf) * D[level](xf+yf*Lf,3)* phi_null(xf+((yf+1   )%Lf)*Lf).adjoint();
             if (yf!=base.y)
                 D[level+1](xc+yc*Lc,0) += phi_null(xf+yf*Lf) * D[level](xf+yf*Lf,4)* phi_null(xf+((yf-1+Lf)%Lf)*Lf).adjoint();
             
             // Off-diagonal terms
             // cross-block contributions only
-            if (xf==(base.x+p.block_x-1) ) // Choose the surface x = x_higher
+            if (xf==(base.x+p.block_x-1)%Lf ) // Choose the surface x = x_higher
                 D[level+1](xc+yc*Lc,1) += phi_null(xf+yf*Lf) * D[level](xf+yf*Lf,1)* phi_null((xf+1  )%Lf+yf*Lf).adjoint();
             if (xf==base.x) // Choose the surface x = x_lower
                 D[level+1](xc+yc*Lc,2) += phi_null(xf+yf*Lf) * D[level](xf+yf*Lf,2)* phi_null((xf-1+Lf)%Lf+yf*Lf).adjoint();
-            if (yf==(base.y+p.block_y-1) )   // Choose the surface y = y_higher
+            if (yf==(base.y+p.block_y-1)%Lf )   // Choose the surface y = y_higher
                 D[level+1](xc+yc*Lc,3) += phi_null(xf+yf*Lf) * D[level](xf+yf*Lf,3)* phi_null(xf+((yf+1   )%Lf)*Lf).adjoint();
             if (yf==base.y) // Choose the surface y = y_lower
                 D[level+1](xc+yc*Lc,4) += phi_null(xf+yf*Lf) * D[level](xf+yf*Lf,4)* phi_null(xf+((yf-1+Lf)%Lf)*Lf).adjoint();
