@@ -68,7 +68,6 @@ void f_compute_coarse_matrix(MArr2D* D, MArr1D phi_null, int level, int quad, pa
         for(x1=0; x1<p.block_x; x1++) for(y1=0; y1<p.block_y; y1++){
             xf=(base.x+x1)%Lf;
             yf=(base.y+y1)%Lf;
-            // printf("%d,%d\t%d,%d\t%d,%d \t\t %d,%d\n",xf,yf,base.x,base.y,xc,yc,base.y+p.block_y-1,yf);
             
             // Diagonal terms
             

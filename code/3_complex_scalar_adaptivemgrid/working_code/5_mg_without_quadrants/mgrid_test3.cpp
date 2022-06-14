@@ -15,11 +15,6 @@ using namespace std;
 typedef std::complex<double> Complex;
 
 #define PI 3.14159265358979323846  // pi 
-
-struct site{ 
-    int x,y;
-    };
-
 typedef struct{
     int L;
     int nlevels;
@@ -110,18 +105,10 @@ typedef Array2D<ColorVector> VArr2D;
 typedef Array2D<ColorMatrix> MArr2D;
 typedef Array1D<ColorMatrix> MArr1D;
 
+typedef Array1D<double> RArr1D;
+
+
 // ### Modules ###
-
-void f_get_base_site(site &base, int quad, int xc, int yc, int Lf, params p){
-    // Select base.x and base.y based on quadrant
-    if      (quad==1) {base.x=p.block_x * xc;               base.y=p.block_y * yc; }
-    else if (quad==2) {base.x=(p.block_x * xc -1 +Lf )%Lf;  base.y=p.block_y * yc; }
-    else if (quad==3) {base.x=(p.block_x * xc -1 +Lf )%Lf;  base.y=(p.block_y * yc - 1 +Lf)%Lf; }
-    else if (quad==4) {base.x=p.block_x * xc;               base.y=(p.block_y * yc - 1 +Lf)%Lf; }
-    else { cout<<"Invalid input for quad"<<quad<<"Must be 1-4"<<endl; exit(1);  }
-    // cout<<base.x<<"\t"<<base.y<<endl;
-}
-
 void f_apply_D(VArr1D v_out, VArr1D v_in, MArr2D D, int level, params p, int quad){
     // Obtain v_out = D . v_in
     int L,x,y,d1,d2;
@@ -174,8 +161,8 @@ double f_get_residue_mag(MArr2D D, VArr1D phi, VArr1D b, int level, params p){
         res+=rtemp(x+y*L).squaredNorm(); // sum of absolute values.
     }
     for(int x=0; x<L; x++) for(int y=0;y<L; y++) bnorm+=b(x+y*L).squaredNorm();
-    
-    // Return norm(res)/ norm(b)
+ 
+    // Return sqrt(res)/ norm(b)
     return sqrt(res)/sqrt(bnorm);
 }
 
@@ -195,7 +182,7 @@ void relax(MArr2D D, VArr1D phi, VArr1D res, int level, int num_iter, params p, 
     
     for(i=0; i<num_iter; i++){
         for(x=0; x<L; x++)
-            for(y=0; y<L; y++){
+            for(y=0; y<L; y++){                
                 phitemp(x+y*L)= (-1.0*(D(x+y*L,0).inverse()))*
                                 ( D(x+y*L,1)*phi((x+1)%L+y*L)
                                 + D(x+y*L,2)*phi((x-1+L)%L+y*L) 
@@ -234,50 +221,25 @@ double f_g_norm(VArr1D vec, int level, int rescale, params p){
     return g_norm;
 }
 
-void f_test_block(int level, int quad, params p){
-    // Compute norm in block and normalize each block and store in single near-null vector
-    int d,L,Lc,n;
-    int x1,y1,xc,yc,xf,yf;
-    site base;
-
-    L = p.size[level];
-    Lc= p.size[level+1];
-    
-    for(xc=0; xc<Lc; xc++) for(yc=0; yc<Lc; yc++) {
-        f_get_base_site(base, quad, xc, yc, L, p);
-        printf("%d,%d->%d,%d base:%d,%d\t\t",xc,yc,p.block_x*xc,p.block_y*yc,base.x,base.y);
-        
-        // Compute norm by summing over block
-        for(x1=0; x1<p.block_x; x1++) for(y1=0; y1<p.block_y; y1++){
-            xf=(base.x+x1)%L;
-            yf=(base.y+y1)%L;
-            printf("%d,%d  ;",xf,yf);
-            }
-        cout<<endl;
-    }
-}
-        
-void f_block_norm(VArr1D vec, int level, int quad, params p){
+void f_block_norm(VArr1D vec, int level, params p){
     // Compute norm in block and normalize each block and store in single near-null vector
     double norm;
     int d,L,Lc,n;
-    int x1,y1,xc,yc,xf,yf;
-    site base;
-
+    int x1,y1,xc,yc,xf,yf,xbase,ybase;
+    
     L = p.size[level];
     Lc= p.size[level+1];
     n=p.n_dof[level];
     
     for(xc=0; xc<Lc; xc++) for(yc=0; yc<Lc; yc++) {
-        // base.x=p.block_x * xc;
-        // base.y=p.block_y * yc;
-        f_get_base_site(base, quad, xc, yc, L, p);
+        xbase=p.block_x * xc;
+        ybase=p.block_y * yc;
         norm=0.0;
         
         // Compute norm by summing over block
         for(x1=0; x1<p.block_x; x1++) for(y1=0; y1<p.block_y; y1++){
-            xf=(base.x+x1)%L;
-            yf=(base.y+y1)%L;
+            xf=(xbase+x1)%L;
+            yf=(ybase+y1)%L;
             norm+=vec(xf+yf*L).squaredNorm(); 
             }
         norm=sqrt(norm);
@@ -295,36 +257,33 @@ void f_block_norm(VArr1D vec, int level, int quad, params p){
         
         // Normalize:  Divide each value in block by norm to normalize 
         for(x1=0; x1<p.block_x; x1++) for(y1=0; y1<p.block_y; y1++){
-            xf=(base.x+x1)%L;
-            yf=(base.y+y1)%L;
+            xf=(xbase+x1)%L;
+            yf=(ybase+y1)%L;
             vec(xf+yf*L)/=norm;
         }
     }
 }
 
-void f_check_block_norm(VArr1D vec, int level, int quad, params p){
+void f_check_block_norm(VArr1D vec, int level, params p){
     // Compute norm in block and normalize each block and store in single near-null vector
     double norm;
     
     int d,L,Lc,n;
-    int x1,y1,xc,yc,xf,yf;
-    site base;
-
+    int x1,y1,xc,yc,xf,yf,xbase,ybase;
+    
     L = p.size[level];
     Lc= p.size[level+1];
     n=p.n_dof[level];
     
     for(xc=0; xc<Lc; xc++) for(yc=0; yc<Lc; yc++) {
-        // base.x=p.block_x * xc;
-        // base.y=p.block_y * yc;
-        f_get_base_site(base, quad, xc, yc, L, p);
-
+        xbase=p.block_x * xc;
+        ybase=p.block_y * yc;
         norm=0.0;
         
         // Compute norm by summing over block
         for(x1=0; x1<p.block_x; x1++) for(y1=0; y1<p.block_y; y1++){
-            xf=(base.x+x1)%L;
-            yf=(base.y+y1)%L;
+            xf=(xbase+x1)%L;
+            yf=(ybase+y1)%L;
             norm+=vec(xf+yf*L).squaredNorm(); 
             }
         norm=sqrt(norm);
@@ -337,13 +296,12 @@ void f_check_block_norm(VArr1D vec, int level, int quad, params p){
     }
 }
 
-void f_check_vec_norm(VArr1D vec, int level, params p, int quad, int quit_flag){
+void f_check_vec_norm(VArr1D vec, int level, params p, int quit_flag){
     // Check if the norm of a vector is null or very small
     Complex dot,ans;
     double norm;
     int d,L,Lc,n,nc;
-    int x1,y1,xc,yc,xf,yf;
-    site base;
+    int x1,y1,xc,yc,xf,yf,xbase,ybase;
     
     L=p.size[level];
     Lc=p.size[level+1];
@@ -352,16 +310,14 @@ void f_check_vec_norm(VArr1D vec, int level, params p, int quad, int quit_flag){
     
     
     for(xc=0; xc<Lc; xc++) for(yc=0; yc<Lc; yc++)  {
-        // base.x=p.block_x * xc;
-        // base.y=p.block_y * yc;
-        f_get_base_site(base, quad, xc, yc, L, p);
-
+        xbase=p.block_x * xc;
+        ybase=p.block_y * yc;
         norm=0.0;
         
         // Compute norm by summing over block
         for(x1=0; x1<p.block_x; x1++) for(y1=0; y1<p.block_y; y1++){
-            xf=(base.x+x1)%L;
-            yf=(base.y+y1)%L;
+            xf=(xbase+x1)%L;
+            yf=(ybase+y1)%L;
             norm+=vec(xf+yf*L).squaredNorm(); 
             }
         norm=sqrt(norm);    
@@ -379,13 +335,12 @@ void f_check_vec_norm(VArr1D vec, int level, params p, int quad, int quit_flag){
         printf("Vector norm pass\n");
 }
 
-void f_check_null_norm(MArr1D null, int level, int quad, params p, int quit_flag){
+void f_check_null_norm(MArr1D null, int level, params p, int quit_flag){
     // Check if norm of each near-null vector is nan or small
     Complex dot,ans;
     double norm;
     int d,L,Lc,n,nc,d1;
-    int x1,y1,xc,yc,xf,yf;
-    site base;
+    int x1,y1,xc,yc,xf,yf,xbase,ybase;
     
     L=p.size[level];
     Lc=p.size[level+1];
@@ -395,16 +350,14 @@ void f_check_null_norm(MArr1D null, int level, int quad, params p, int quit_flag
     // Check nans in null
     
         for(xc=0; xc<Lc; xc++) for(yc=0; yc<Lc; yc++) for(d1=0;d1<nc;d1++){
-        // base.x=p.block_x * xc;
-        // base.y=p.block_y * yc;
-        f_get_base_site(base, quad, xc, yc, L, p);
-
+        xbase=p.block_x * xc;
+        ybase=p.block_y * yc;
         norm=0.0;
         
         // Compute norm by summing over block
         for(x1=0; x1<p.block_x; x1++) for(y1=0; y1<p.block_y; y1++){
-            xf=(base.x+x1)%L;
-            yf=(base.y+y1)%L;
+            xf=(xbase+x1)%L;
+            yf=(ybase+y1)%L;
             norm+=abs(null(xf+yf*L).row(d1).squaredNorm()); 
             }
         norm=sqrt(norm);   
@@ -487,25 +440,22 @@ void f_near_null(MArr1D phi_null, MArr2D D, int level, int quad, int num_iters, 
             // printf("Post relaxation. Level %d:\tGlobal norm %25.20e\n",level,g_norm);
 
             // Block normalize near-null vectors
-            f_block_norm(phi_temp,level,quad, p);
+            f_block_norm(phi_temp,level,p);
             
-            // for(int x=0;x<L; x++) for(int y=0; y<L; y++) phi_null(x+y*L).row(d1)=phi_temp(x+y*L); // Assign near-null vector to phi_null
-            // Conjugate phi_null. This is to ensure gauge invariance. By storing as an nc x nf matrix, you are already transposing it. Now, also need to conjugate it.
-            for(int x=0; x<L; x++) for(int y=0; y<L; y++) phi_null(x+y*L).row(d1)=phi_temp(x+y*L).conjugate();      // Assign near-null vector to phi_null
+            for(int x=0;x<L; x++) for(int y=0; y<L; y++) phi_null(x+y*L).row(d1)=phi_temp(x+y*L); // Assign near-null vector to phi_null
         }
     
     // printf("Check null vectors are not 0\t");
-    // f_check_null_norm(phi_null,level,quad,p,1);  
+    // f_check_null_norm(phi_null,level,p,1);  
 }
 
-void f_ortho(MArr1D null, int level, int quad, params p) {
+void f_ortho(MArr1D null, int level, params p) {
     // Orthogonalize set of near-null vector w.r.t previous ones i.e. different rows of phi_null[level][X]
     Complex dot,ans;
     double norm;
     
     int d,d1,d2,L,Lc,n,nc;
-    int x,y,x1,y1,xc,yc,xf,yf;
-    site base;
+    int x,y,x1,y1,xc,yc,xf,yf,xbase,ybase;
     
     L=p.size[level];
     Lc=p.size[level+1];
@@ -518,7 +468,7 @@ void f_ortho(MArr1D null, int level, int quad, params p) {
     for (int j = 0; j < L*L ; j++)  phi_temp2(j) = ColorVector(n); // Previous vectors
     
     printf("Check1 for 0 null vectors\t");
-    f_check_null_norm(null,level,quad,p,1); 
+    f_check_null_norm(null,level,p,1); 
     
     for(int d1=0; d1 < nc; d1++){
         // printf("Orthogonalizing vector for level %d : d1 %d\n",level,d1);
@@ -531,23 +481,21 @@ void f_ortho(MArr1D null, int level, int quad, params p) {
             
             // Check nulls in phi_temp2
             // printf("Check phitemp2 before operation \t");
-            // f_check_vec_norm(phi_temp2,level,p,quad,1);
+            // f_check_vec_norm(phi_temp2,level,p,1);
 
             
             
             for(xc=0; xc<Lc; xc++) for(yc=0; yc<Lc; yc++) {
-                // base.x=p.block_x * xc;
-                // base.y=p.block_y * yc;
-                f_get_base_site(base, quad, xc, yc, L, p);
-
-
+                xbase=p.block_x * xc;
+                ybase=p.block_y * yc;
+                
                 norm=0.0;
                 dot=Complex(0.0,0.0);
                 
                 // Compute norm by summing over block
                 for(x1=0; x1<p.block_x; x1++) for(y1=0; y1<p.block_y; y1++){
-                    xf=(base.x+x1)%L;
-                    yf=(base.y+y1)%L;
+                    xf=(xbase+x1)%L;
+                    yf=(ybase+y1)%L;
                     
                     norm+=phi_temp2(xf+yf*L).squaredNorm(); 
                     
@@ -570,26 +518,25 @@ void f_ortho(MArr1D null, int level, int quad, params p) {
                     exit(1);}                    
 
                 for(x1=0; x1<p.block_x; x1++) for(y1=0; y1<p.block_y; y1++){
-                    xf=(base.x+x1)%L;
-                    yf=(base.y+y1)%L;
+                    xf=(xbase+x1)%L;
+                    yf=(ybase+y1)%L;
                     // Can avoid dividing by norm, since it is 1.
                     phi_temp1(xf+yf*L)+= -((dot/norm)*phi_temp2(xf+yf*L)); }
             }
         }
-        f_block_norm(phi_temp1,level,quad, p);
+        f_block_norm(phi_temp1,level,p);
        
         // Store null vector back in row of phi_null 
         for(int x=0;x<L; x++) for(int y=0; y<L; y++) null(x+y*L).row(d1)=phi_temp1(x+y*L);
     }
 }    
 
-void f_check_ortho(MArr1D null,int level, int quad, params p){
+void f_check_ortho(MArr1D null,int level, params p){
 
     Complex dot,ans;
 
     int d,d1,d2,Lf,Lc,nf,nc;
-    int x1,y1,xc,yc,xf,yf;
-    site base;
+    int x1,y1,xc,yc,xf,yf,xbase,ybase;
     
     Lf=p.size[level];
     Lc=p.size[level+1];
@@ -606,17 +553,14 @@ void f_check_ortho(MArr1D null,int level, int quad, params p){
             printf("Check Ortho for d1 %d, d2 %d\n",d1,d2);
             
             for(xc=0; xc<Lc; xc++) for(yc=0; yc<Lc; yc++) {
-                // base.x=p.block_x * xc;
-                // base.y=p.block_y * yc;
-                
-                f_get_base_site(base, quad, xc, yc, Lf, p);
-
+                xbase=p.block_x * xc;
+                ybase=p.block_y * yc;
                 ans=Complex(0.0,0.0);
 
                 // Compute norm by summing over block
                 for(x1=0; x1<p.block_x; x1++) for(y1=0; y1<p.block_y; y1++){
-                    xf=(base.x+x1)%Lf;
-                    yf=(base.y+y1)%Lf;
+                    xf=(xbase+x1)%Lf;
+                    yf=(ybase+y1)%Lf;
                     ans+=null(xf+yf*Lf).row(d1).dot(null(xf+yf*Lf).row(d2));
                     }
                 if(abs(ans)>1e-12){
@@ -721,6 +665,35 @@ void f_read_gaugeU_heatbath(char* fname, MArr2D U, params p){
     fclose(pfile);
 }
 
+void f_gauge_transform(MArr2D U, params p, std::mt19937& gen, std::uniform_real_distribution<double>& dist ){
+    // Generate U field for a general gauge transformation
+    int x,y,j,d1,d2,L;
+    int site1,site2;
+    L=p.size[0];
+   
+    // omega : (X)(d1,d2)
+    RArr1D omega(L*L);// Phase angle at each site
+    for(int i=0; i< p.size[0]*p.size[0]; i++){
+        omega(i)=dist(gen);
+        // Write omega to file
+        }
+        
+    for(x=0; x<p.size[0]; x++) for (y=0; y<p.size[0]; y++){
+        // printf("omega: %f, %d,%d\n",omega(x+y*L),x,y);
+        // cout<<std::polar(1.0,omega(x+y*L))<<x<<y<<endl;
+        site1=x+y*L;
+        for(d1=0;d1<p.n_dof[0];d1++) for(d2=0;d2<p.n_dof[0];d2++){
+            site2=(x+1)%L+y*L;
+            // U(site1,0)(d1,d2)=std::polar(1.0,omega(site1))*U(site1,0)(d1,d2)*std::polar(1.0,omega(site2).adjoint();
+            // Only for U1
+            U(site1,0)(d1,d2)=std::polar(1.0,(omega(site1)-omega(site2)))*U(site1,0)(d1,d2);
+            site2=x+((y+1)%L)*L;
+            // U(site1,1)(d1,d2)=std::polar(1.0,omega(site1))*U(site1,1)*std::polar(1.0,omega(site2).adjoint();
+            // Only for U1
+            U(site1,1)(d1,d2)=std::polar(1.0,(omega(site1)-omega(site2)))*U(site1,1)(d1,d2);
+    }}
+}
+
 #include "modules.h"
 #include "tests.h"
 
@@ -731,7 +704,9 @@ int main (int argc, char *argv[])
     FILE * pfile1 = fopen ("results_gen_scaling.txt","a"); 
     FILE * pfile2 = fopen ("results_phi.txt","w"); 
     FILE * pfile3 = fopen ("results_residue.txt","w"); 
- 
+    FILE * pfile4 = fopen ("results_resmag1.txt","w"); 
+    FILE * pfile5 = fopen ("results_resmag2.txt","w"); 
+    
     double resmag,res_threshold;
     double m_square;
     int L, max_levels;
@@ -754,6 +729,8 @@ int main (int argc, char *argv[])
     // p.m=0.002; // mass
     // p.nlevels=6;
     
+    p.n_dof_scale=1; // N_dof increase with level
+    
     L=atoi(argv[1]);
     num_iters=atoi(argv[2]);
     block_x=atoi(argv[3]);
@@ -775,7 +752,6 @@ int main (int argc, char *argv[])
     p.size[0]=p.L;
     p.scale[0]=1.0/(4.0+m_square*p.a[0]*p.a[0]);// 1/(4+m^2 a^2) 
     p.n_dof[0]=1;
-    p.n_dof_scale=2; // N_dof at higher levels
     p.block_x=block_x;
     p.block_y=block_y;
     
@@ -795,8 +771,7 @@ int main (int argc, char *argv[])
         // p.a[level]=2.0*p.a[level-1];
         p.a[level]=1.0; // For adaptive Mgrid, set a=1
         p.scale[level]=1.0/(4+m_square*p.a[level]*p.a[level]);
-        // p.n_dof[level]=p.n_dof[level-1]*p.n_dof_scale;
-        p.n_dof[level]=p.n_dof_scale; // Fixing ndof at lower levels to 2
+        p.n_dof[level]=p.n_dof[level-1]*p.n_dof_scale;
     }
     
     printf("\nLevel\tL\tN_dof");
@@ -811,10 +786,6 @@ int main (int argc, char *argv[])
     
     // Generate Gaussian distribution about random mean angle
     double mean_angle;
-    // for(int i=0; i<8; i++){
-    //     mean_angle=dist(gen);
-    //     cout<<"\nInitial mean Angle "<<mean_angle; }
-    // printf("M_PI %f\n",M_PI);
     mean_angle=0.0;
     double width=0.2; // Width of the gaussian distribution
     std::normal_distribution<double> dist2(mean_angle,width);
@@ -840,15 +811,17 @@ int main (int argc, char *argv[])
             }}
     
     f_plaquette(U,p);
-    // f_write_gaugeU(U, p);  // Write gauge field config from file
-    // f_read_gaugeU(U, p);   // Read gauge field config from file
+    f_gauge_transform(U, p, gen, dist);
     
-    char fname[100];
-    double beta;
+    f_write_gaugeU(U, p);  // Write gauge field config from file
+    f_read_gaugeU(U, p);   // Read gauge field config from file
     
-    beta=6.0;
-    sprintf(fname,"gauge_config_files/phase_%d_b%0.1f.dat",p.size[0],beta); // phase_{L}_b{beta}.dat
-    f_read_gaugeU_heatbath(fname,U, p);   // Read gauge field config from file
+    // char fname[100];
+    // double beta=100.0;
+    // sprintf(fname,"gauge_config_files/phase_%d_b%0.1f.dat",p.size[0],beta); // phase_{L}_b{beta}.dat
+    // f_read_gaugeU_heatbath(fname,U, p);   // Read gauge field config from file
+    
+    // f_gauge_transform(U, p, gen, dist);
     f_plaquette(U,p);
     
     // exit(1);
@@ -864,8 +837,10 @@ int main (int argc, char *argv[])
             for(int d1=0;d1<p.n_dof[i];d1++){
                 phi[i](j)(d1) = 1.0;
                 r[i](j)(d1)=0.0;
-                phi[i](j)(d1)=dist(gen);
-                r[i](j)(d1)=dist(gen);
+                // phi[i](j)(d1)=dist(gen);
+                // r[i](j)(d1)=dist(gen);
+                phi[i](j)(d1)=complex<double>(dist(gen),dist(gen));
+                r[i](j)(d1)=complex<double>(dist(gen),dist(gen));
             }
       }}
     
@@ -888,10 +863,12 @@ int main (int argc, char *argv[])
         phi_null[i]=MArr1D(p.size[i]*p.size[i]); 
         for (int j = 0; j < p.size[i]*p.size[i]; j++){
             phi_null[i](j) = ColorMatrix(p.n_dof[i+1],p.n_dof[i]);
-            // Random initialization 
+            
             for(int d1=0;d1<p.n_dof[i+1];d1++) for(int d2=0;d2<p.n_dof[i];d2++){
-                // phi_null[i](j)(d1,d2)=1.0;}
-                phi_null[i](j)(d1,d2)=dist(gen);}
+                phi_null[i](j)(d1,d2)=1.0;
+                phi_null[i](j)(d1,d2)=dist(gen);// Random initialization 
+                // phi_null[i](j)(d1,d2)=complex<double>(dist(gen),dist(gen));
+            }
     }}
  
     // Define sources
@@ -903,7 +880,7 @@ int main (int argc, char *argv[])
     f_compute_lvl0_matrix(D, U, p);      // Compute lvl0 D matrix=gauged Laplacian
     resmag=f_get_residue_mag(D[0],phi[0],r[0],0,p);
     cout<<"\nResidue "<<resmag<<endl;
-    int quad=2;
+    int quad=1;
     
     /* ###################### */
     // Setup operators for adaptive Mgrid
@@ -912,21 +889,15 @@ int main (int argc, char *argv[])
             printf("Generating near null vectors\n");
             for(lvl=0;lvl<p.nlevels;lvl++){
                 printf("lvl %d\n",lvl);
-                //Compute near null vectors and normalize them
+                // Compute near null vectors and normalize them
                 f_near_null(phi_null[lvl], D[lvl],lvl, quad, 500, gs_flag, p);
-                f_ortho(phi_null[lvl],lvl,quad, p);
-                f_ortho(phi_null[lvl],lvl,quad, p);
-                // f_ortho(phi_null[lvl],lvl,quad, p);
+                f_ortho(phi_null[lvl],lvl,p);
+                f_ortho(phi_null[lvl],lvl,p);
+                // f_ortho(phi_null[lvl],lvl,p);
                 // Check orthogonality
-                f_check_ortho(phi_null[lvl],lvl,quad, p);
-                // // Conjugate phi_null
-                // for(int i=0; i< p.size[lvl]*p.size[lvl]; i++){
-                //     for(int d1=0; d1<p.n_dof[lvl]; d1++)  for(int d2=0; d2<p.n_dof[lvl+1]; d2++){
-                //          phi_null[lvl](i)(d1,d2)=conj(phi_null[lvl](i)(d1,d2));  
-                //     }}
-                
+                f_check_ortho(phi_null[lvl],lvl,p);
                 // Compute D matrix for lower level
-                f_compute_coarse_matrix(D,phi_null[lvl], lvl, quad, p);
+                f_compute_coarse_matrix(D,phi_null[lvl], lvl, p);
             }
             // Write near null vectors to file
         f_write_near_null(phi_null,p);
@@ -936,32 +907,39 @@ int main (int argc, char *argv[])
             f_read_near_null(phi_null,p);
             for(lvl=0;lvl<p.nlevels;lvl++){
                 // Check orthogonality
-                f_check_ortho(phi_null[lvl],lvl,quad, p);
+                f_check_ortho(phi_null[lvl],lvl,p);
                 // Compute D matrix for lower level
-                f_compute_coarse_matrix(D,phi_null[lvl], lvl, quad, p);
+                f_compute_coarse_matrix(D,phi_null[lvl], lvl, p);
             }
         }
     }
    // exit(1); 
     
     // Test D matrix values
-    cout<<"D matrix"<<endl;
+    double normd;
     for(lvl=0;lvl<p.nlevels+1;lvl++){
         for(int x=0;x<p.size[lvl];x++) for(int y=0;y<p.size[lvl];y++){
             // int k=0;
             for(int k=0;k<5;k++){
-                if (((k==0) & (D[lvl](x+y*p.size[lvl],k).inverse().norm() > 1e2)) | ((k!=0) & (D[lvl](x+y*p.size[lvl],k).norm() > 10))){
+                normd=D[lvl](x+y*p.size[lvl],k).inverse().norm();
+                if ((k==0) & (isnan(normd)))  {  
+                    printf("Error: Nan in D0 inverse %e \n",normd);
+                    cout<<"D0 matrix"<<D[lvl](x+y*p.size[lvl],0)<<endl;
+                    exit(1);}
+                if (((k==0) & (normd > 1e2)) | ((k!=0) & (D[lvl](x+y*p.size[lvl],k).norm() > 10))){
                     printf("D matrix for lvl %d x %d, y %d direc %d\n",lvl,x,y,k);
                     cout<<D[lvl](x+y*p.size[lvl],k).norm()<<'\t';
                     cout<<D[lvl](x+y*p.size[lvl],k).inverse().norm()<<endl;
                     cout<<"----"<<endl;
                     cout<<D[lvl](x+y*p.size[lvl],k)<<endl;
-                    cout<<D[lvl](x+y*p.size[lvl],k).inverse()<<endl; }
-                // if((D[lvl](x+y*p.size[lvl],k)).squaredNorm()<1e-10){
-                //     printf("%d, %d,%d %d",lvl,x,y,k);
-                //     cout<<D[lvl](x+y*p.size[lvl],k)<<endl; }
+                    // cout<<D[lvl](x+y*p.size[lvl],k).inverse()<<endl;
             }}
         }
+    
+    lvl=p.nlevels;
+    for(int x=0;x<p.size[lvl];x++) for(int y=0;y<p.size[lvl];y++){
+        cout<<D[lvl](x+y*p.size[lvl],0)<<endl; }
+    }
     // exit(1);
     
     // Checks //
@@ -981,14 +959,17 @@ int main (int argc, char *argv[])
             // 1. Projection tests
             f_test1_restriction_prolongation(vec,phi_null[lvl-1],lvl-1, p, quad);
             // 2. D_fine vs D_coarse test
-            f_test2_D(vec,D,phi_null[lvl-1],lvl-1, p, quad);    
-        }
+            f_test2_D(vec,D,phi_null[lvl-1],lvl-1, p, quad);    }
         // 3. Hermiticity
         f_test3_hermiticity(D[lvl],lvl,p);
         // 4. Hermiticity <v|D|v>=real
         f_test4_hermiticity_full(vec,D[lvl],lvl, p,quad);
     }
     // exit(1);
+    
+    // Storing magnitude of residue
+    double r_mag[20];
+    
     
     /* ###################### */
     for(iter=0; iter < max_iters; iter++){
@@ -998,21 +979,54 @@ int main (int argc, char *argv[])
             f_write_residue(D[0],phi[0],r[0],0, iter, pfile3, p);
          }     
         
+        for (int lvl=0; lvl<=p.nlevels; lvl++) r_mag[lvl]=0.0;
         // Do Multigrid 
         if(p.nlevels>0){
         // Go down: fine -> coarse
             for(lvl=0;lvl<p.nlevels;lvl++){
+                // cout<<"\nlvl\t"<<lvl<<endl;
+                // // Test phi_c is zero
+                // for (int j = 0; j < p.size[lvl+1]*p.size[lvl+1] ; j++)
+                //     for(int d1=0;d1<p.n_dof[lvl+1];d1++){
+                //         if((iter>0)&&(lvl>0)&&(phi[lvl+1](j)(d1)!=0.0)){
+                //             cout<<"\nphic not zero\t"<<phi[lvl+1](j)(d1)<<endl;
+                //             exit(1);
+                //         }};
+                
+                
                 relax(D[lvl],phi[lvl],r[lvl], lvl, num_iters,p,gs_flag); // Perform Gauss-Seidel
+                r_mag[lvl]=f_get_residue_mag(D[lvl],phi[lvl],r[lvl],lvl,p);
+                
                 //Project to coarse lattice 
                 f_restriction_res(r[lvl+1],r[lvl],phi[lvl],D[lvl], phi_null[lvl], lvl,p,quad); 
                 // printf("\nlvl %d, %d\n",lvl,p.size[lvl]);
             }
-        
+            // Write residue magnitude after going down
+            f_write_residue_mag(r_mag,iter, pfile4, p);
+            
             // come up: coarse -> fine
             for(lvl=p.nlevels;lvl>=0;lvl--){
+#if 0 
+                if(lvl==p.nlevels){
+                    for(int i=0; i<1; i++){
+                        relax(D[lvl],phi[lvl],r[lvl], lvl, num_iters,p,gs_flag); // Perform Gauss-Seidel
+                        resmag=f_get_residue_mag(D[lvl],phi[lvl],r[lvl],lvl,p);
+                        if (resmag<0.1) {
+                            cout<<endl<<"coarsest loop breaks at "<<i<<" for lvl\t"<<lvl<<" residue "<<resmag<<endl;
+                            break;}
+                    }}
+                else {
+                    relax(D[lvl],phi[lvl],r[lvl], lvl, num_iters,p,gs_flag); // Perform Gauss-Seidel
+                    // resmag=f_get_residue_mag(D[lvl],phi[lvl],r[lvl],lvl,p);
+                    // cout<<endl<<"lvl\t"<<lvl<<" residue "<<resmag<<endl;
+                    }
+#endif
                 relax(D[lvl],phi[lvl],r[lvl], lvl, num_iters,p,gs_flag); // Perform Gauss-Seidel
+                r_mag[lvl]=f_get_residue_mag(D[lvl],phi[lvl],r[lvl],lvl,p);
                 if(lvl>0) f_prolongate_phi(phi[lvl-1],phi[lvl], phi_null[lvl-1], lvl,p,quad);
-                }
+            }
+            // Write residue magnitude after going up 
+            f_write_residue_mag(r_mag,iter, pfile5, p);
         }
         // No Multi-grid, just Relaxation
         else { relax(D[0],phi[0],r[0], 0, num_iters,p,gs_flag);}
@@ -1031,6 +1045,6 @@ int main (int argc, char *argv[])
     }// end of iterations
     
     cout<<endl;
-    fclose(pfile1); fclose(pfile2); fclose(pfile3);
+    fclose(pfile1); fclose(pfile2); fclose(pfile3); fclose(pfile4); fclose(pfile5);
     return 0;
 }
