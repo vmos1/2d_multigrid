@@ -1,7 +1,8 @@
 #pragma once
 // Tests 
 void f_test1_restriction_prolongation(VArr1D vec, MArr1D phi_null, int level, params p, int quad){
-    // Test: vec_c - P P^dagger vec = 0
+    // Test: vec_c - P P^dagger vec_c = 0
+    // level = fine level. phi_null for fine level
     
     int Lf,Lc,nf,nc,d1;
     int x,y;
@@ -25,20 +26,6 @@ void f_test1_restriction_prolongation(VArr1D vec, MArr1D phi_null, int level, pa
     }   
     printf("Test1\n");
     
-    // for(x=0;x<Lc; x++) for(y=0; y<Lc; y++) {
-    //     cout<< "mid "<<(phi_null(x+y*Lc).adjoint() * phi_null(x+y*Lc))<<endl;
-    // }
-    
-    // for(x=0;x<Lc; x++) for(y=0; y<Lc; y++) {
-    //     for(d1=0;d1<nc;d1++){ 
-    //         // cout<<phi_null(x+y*Lc).rows()<<"\t"<<phi_null(x+y*Lc).cols()<<endl;
-    //         // printf("%d\n",(phi_null(x+y*Lc).adjoint() * phi_null(x+y*Lc)).cols());
-    //         norm1=(phi_null(x+y*Lc).row(d1).adjoint() * phi_null(x+y*Lc).row(d1))(0,0);
-    //         norm2=(phi_null(x+y*Lc).row(d1).dot(phi_null(x+y*Lc).row(d1)));
-    //         // printf("%d,%d\t %f+i%f\t\t",x,y,real(norm1),imag(norm1));
-    //         // printf("%d,%d\t %f+i%f\n",x,y,real(norm2),imag(norm2));
-    //     }}
-    
     // Prolongate coarse to fine
     f_prolongation(vec_f,vec,phi_null,level+1, p, quad);
     
@@ -53,7 +40,7 @@ void f_test1_restriction_prolongation(VArr1D vec, MArr1D phi_null, int level, pa
             }}
     }
 
-void f_test2_D(VArr1D vec,MArr2D* D,MArr1D phi_null,int level, params p, int quad){
+void f_test2_D(VArr1D vec, MArr2D Dc, MArr2D Df, MArr1D phi_null,int level, params p, int quad){
     // Test: (D_c - P D_f P^dagger) v_c = 0
     
     int Lf,Lc,nf,nc,d1;
@@ -87,13 +74,13 @@ void f_test2_D(VArr1D vec,MArr2D* D,MArr1D phi_null,int level, params p, int qua
     f_prolongation(vec_f1,vec,phi_null,level+1, p, quad);
     
     // Step 2: v_f2 = D_f . v_f1
-    f_apply_D(vec_f2,vec_f1,D[level],level,p, quad);
+    f_apply_D(vec_f2,vec_f1,Df,level,p, quad);
 
     // Step 3: v_c1 = P v_f2 
     f_restriction(vec_c1, vec_f2, phi_null, level, p, quad);
     
     // Step 4: v_c2=D_c vec
-    f_apply_D(vec_c2,vec,D[level+1],level+1,p, quad);
+    f_apply_D(vec_c2,vec,Dc,level+1,p, quad);
    
     // Check if they're equal
     for(x=0;x<Lc; x++) for(y=0; y<Lc; y++) for(d1=0; d1<nc; d1++) {
@@ -142,9 +129,7 @@ void f_test3_hermiticity(MArr2D D, int level, params p){
             // if(1>0){
                 printf("%d,%d-> %d,%d\t",x,y,x,y);
                 printf("Diagonal Diff:%20.20e+i %20.20e\t %20.20e+i%20.20e, %20.20e+i%20.20e\n",real(a5)-real(a6),imag(a5)-imag(a6),real(a5),imag(a5),real(a6),imag(a6));}
-                
-            // if (fabs(imag(a0))>Epsilon){// Diagonal elements must be real
-                // printf("Diagonal %d,%d\t%20.20e+i %20.20e\n",x,y,real(a0),imag(a0));}
+
         }
     }
 }
@@ -222,10 +207,4 @@ void f_rotate_vector(VArr1D vec_2, VArr1D vec_1, VArr1D omega, int lvl, params p
             if      (forward==true) vec_2(i)(d)=     omega(i)(d) *vec_1(i)(d);  
             else if (forward==false)  vec_2(i)(d)=conj(omega(i)(d))*vec_1(i)(d);  
         }}
-    
-    // for(int i=0; i< p.size[lvl]*p.size[lvl]; i++){
-    //     if      (forward==true) vec_2[lvl](i)=omega(i)          *vec_1[lvl](i);  
-    //     else if (forward==false)  vec_2[lvl](i)=omega(i).adjoint()*vec_1[lvl](i);  
-    //     }
-    
     }

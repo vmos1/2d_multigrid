@@ -21,7 +21,7 @@ void f_compute_lvl0_matrix(MArr2D* D, MArr2D U, params p){
         }
 }
 
-void f_compute_coarse_matrix(MArr2D* D, MArr1D phi_null, int level, int quad, params p){
+void f_compute_coarse_matrix(MArr2D Dc, MArr2D Df, MArr1D phi_null, int level, int quad, params p){
     // Compute D matrix for lower level
     // Given a lvl, use D[lvl] and phi_null[lvl] to compute D[lvl+1]
     // D_c = P D_f P^dagger
@@ -62,7 +62,7 @@ void f_compute_coarse_matrix(MArr2D* D, MArr1D phi_null, int level, int quad, pa
     for(xc=0; xc<Lc; xc++) for(yc=0; yc<Lc; yc++) {
         f_get_base_site(base, quad, xc, yc, Lf, p);
         
-        for(d1=0;d1<nc;d1++) for(d2=0; d2<nc; d2++) for (i=0;i<5;i++) D[level+1](xc+yc*Lc,i)(d1,d2)=Complex(0,0); 
+        for(d1=0;d1<nc;d1++) for(d2=0; d2<nc; d2++) for (i=0;i<5;i++) Dc(xc+yc*Lc,i)(d1,d2)=Complex(0,0); 
         // Compute norm by summing over block
         
         for(x1=0; x1<p.block_x; x1++) for(y1=0; y1<p.block_y; y1++){
@@ -72,28 +72,28 @@ void f_compute_coarse_matrix(MArr2D* D, MArr1D phi_null, int level, int quad, pa
             // Diagonal terms
             
             // same-site contribution
-            D[level+1](xc+yc*Lc,0)     += phi_null(xf+yf*Lf) * D[level](xf+yf*Lf,0)* phi_null(xf+yf*Lf).adjoint();
+            Dc(xc+yc*Lc,0)     += phi_null(xf+yf*Lf) * Df(xf+yf*Lf,0)* phi_null(xf+yf*Lf).adjoint();
             
             // cross-site, same-block contribution
             if (xf!=(base.x+p.block_x-1)%Lf)
-                D[level+1](xc+yc*Lc,0) += phi_null(xf+yf*Lf) * D[level](xf+yf*Lf,1)* phi_null((xf+1  )%Lf+yf*Lf).adjoint();
+                Dc(xc+yc*Lc,0) += phi_null(xf+yf*Lf) * Df(xf+yf*Lf,1)* phi_null((xf+1  )%Lf+yf*Lf).adjoint();
             if (xf!=base.x)
-                D[level+1](xc+yc*Lc,0) += phi_null(xf+yf*Lf) * D[level](xf+yf*Lf,2)* phi_null((xf-1+Lf)%Lf+yf*Lf).adjoint();
+                Dc(xc+yc*Lc,0) += phi_null(xf+yf*Lf) * Df(xf+yf*Lf,2)* phi_null((xf-1+Lf)%Lf+yf*Lf).adjoint();
             if (yf!=(base.y+p.block_y-1)%Lf)
-                D[level+1](xc+yc*Lc,0) += phi_null(xf+yf*Lf) * D[level](xf+yf*Lf,3)* phi_null(xf+((yf+1   )%Lf)*Lf).adjoint();
+                Dc(xc+yc*Lc,0) += phi_null(xf+yf*Lf) * Df(xf+yf*Lf,3)* phi_null(xf+((yf+1   )%Lf)*Lf).adjoint();
             if (yf!=base.y)
-                D[level+1](xc+yc*Lc,0) += phi_null(xf+yf*Lf) * D[level](xf+yf*Lf,4)* phi_null(xf+((yf-1+Lf)%Lf)*Lf).adjoint();
+                Dc(xc+yc*Lc,0) += phi_null(xf+yf*Lf) * Df(xf+yf*Lf,4)* phi_null(xf+((yf-1+Lf)%Lf)*Lf).adjoint();
             
             // Off-diagonal terms
             // cross-block contributions only
             if (xf==(base.x+p.block_x-1)%Lf ) // Choose the surface x = x_higher
-                D[level+1](xc+yc*Lc,1) += phi_null(xf+yf*Lf) * D[level](xf+yf*Lf,1)* phi_null((xf+1  )%Lf+yf*Lf).adjoint();
+                Dc(xc+yc*Lc,1) += phi_null(xf+yf*Lf) * Df(xf+yf*Lf,1)* phi_null((xf+1  )%Lf+yf*Lf).adjoint();
             if (xf==base.x) // Choose the surface x = x_lower
-                D[level+1](xc+yc*Lc,2) += phi_null(xf+yf*Lf) * D[level](xf+yf*Lf,2)* phi_null((xf-1+Lf)%Lf+yf*Lf).adjoint();
+                Dc(xc+yc*Lc,2) += phi_null(xf+yf*Lf) * Df(xf+yf*Lf,2)* phi_null((xf-1+Lf)%Lf+yf*Lf).adjoint();
             if (yf==(base.y+p.block_y-1)%Lf )   // Choose the surface y = y_higher
-                D[level+1](xc+yc*Lc,3) += phi_null(xf+yf*Lf) * D[level](xf+yf*Lf,3)* phi_null(xf+((yf+1   )%Lf)*Lf).adjoint();
+                Dc(xc+yc*Lc,3) += phi_null(xf+yf*Lf) * Df(xf+yf*Lf,3)* phi_null(xf+((yf+1   )%Lf)*Lf).adjoint();
             if (yf==base.y) // Choose the surface y = y_lower
-                D[level+1](xc+yc*Lc,4) += phi_null(xf+yf*Lf) * D[level](xf+yf*Lf,4)* phi_null(xf+((yf-1+Lf)%Lf)*Lf).adjoint();
+                Dc(xc+yc*Lc,4) += phi_null(xf+yf*Lf) * Df(xf+yf*Lf,4)* phi_null(xf+((yf-1+Lf)%Lf)*Lf).adjoint();
             }
         
 //             D[level+1](x+y*Lc,0)  =( phi_null(xa+ya*Lf) * D[level](xa+ya*Lf,0)* phi_null(xa+ya*Lf).adjoint()
@@ -126,7 +126,8 @@ void f_compute_coarse_matrix(MArr2D* D, MArr1D phi_null, int level, int quad, pa
 }
 
 void f_restriction(VArr1D vec_c, VArr1D vec_f, MArr1D phi_null, int level, params p, int quad){
-    // vec_c = P vec_f
+    // vec_c = P vec_f . level = fine level. phi_null of fine level
+    
     int Lf,Lc,nf,nc,d1;
     // int xa,xb,ya,yb;
     int x1,y1,xc,yc,xf,yf;
@@ -151,7 +152,8 @@ void f_restriction(VArr1D vec_c, VArr1D vec_f, MArr1D phi_null, int level, param
 }
 
 void f_prolongation(VArr1D vec_f,VArr1D vec_c, MArr1D phi_null,int level,params p, int quad){
-    // vec_f = P^dagger vec_c
+    // vec_f = P^dagger vec_c . level = coarse level . phi_null of fine level
+    
     int Lf, Lc,d1,d2,nc,nf;
     // int xa,xb,ya,yb,x,y;
     int x1,y1,xc,yc,xf,yf;
@@ -244,21 +246,6 @@ void f_write_residue(MArr2D D, VArr1D phi, VArr1D b, int level, int iter, FILE* 
             fprintf(pfile3,"%f+i%f,",real(rtemp(x+L*y)(d)),imag(rtemp(x+L*y)(d))); }}
     fprintf(pfile3,"\n"); 
 }
-
-// void f_write_residue_mag(MArr2D* D, VArr1D* phi, VArr1D* r, int iter, FILE* pfile, params p){
-//     // Writing the magnitude of residue for each level for each iteration
-    
-//     double resmag;
-//     // Write residue magnitude of each level to file
-//     fprintf(pfile,"%d,",iter);
-//     for(int lvl=0;lvl<p.nlevels+1;lvl++){
-//         // Get residue magnitude for level    
-//         resmag=f_get_residue_mag(D[lvl],phi[lvl],r[lvl],lvl,p);
-//         // printf("\nlvl %d resmag %f\n ",lvl,resmag);
-//         fprintf(pfile,"%5.10e,",resmag); }
-//     fprintf(pfile,"\n"); 
-//     fflush(pfile);
-// }
 
 void f_write_residue_mag(double* resmag, int iter, FILE* pfile, params p){
     // Writing the magnitude of residue for each level for each iteration
