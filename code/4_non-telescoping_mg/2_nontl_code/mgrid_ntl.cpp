@@ -33,13 +33,15 @@ int main (int argc, char *argv[])
     double m_square;
     int L, max_levels,iter,lvl,d1,d2;
     int gs_flag; // Flag for gauss-seidel (=1)
-    int num_iters, block_x, block_y;
+    int num_iters, block_x, block_y,quad;
         
     // #################### 
     // Set parameters
     gs_flag=1;  // Gauss-seidel = 1, Jacobi = 0
-    
+    quad=2;
     int gen_null; // Flag for generating near null vectors
+    int t_flag,n_copies; // t_flag=1 for non-telescoping
+    int total_copies=4; // max number of copies
     
     L=atoi(argv[1]); // 32
     num_iters=atoi(argv[2]); // number of Gauss-Seidel iterations  20
@@ -48,6 +50,14 @@ int main (int argc, char *argv[])
     gen_null=atoi(argv[4]); // 0
     p.m=atof(argv[5]); // -0.07
     p.nlevels=atoi(argv[6]); // 4
+    t_flag=atoi(argv[7]);// 0 or 1
+    n_copies=atoi(argv[8]); // 4
+    
+    if (t_flag==1 && p.nlevels<2){ // Ensure at least 2 levels for non-telescoping
+        printf("Need at least 2 levels for non-telescoping. Have %d",p.nlevels);
+        exit(1);
+    }
+    
     
     //m_square=p.m*p.m;
     m_square=p.m;
@@ -155,10 +165,10 @@ int main (int argc, char *argv[])
             for (int j = 0; j < p.size[i]*p.size[i] ; j++){
                 for (int k = 0; k < 5; k++){
                     D[i](j, k) = ColorMatrix(p.n_dof[i],p.n_dof[i]);
-                        // Initialize
-                        for(int d1=0;d1<p.n_dof[i];d1++){
-                            for(int d2=0;d2<p.n_dof[i];d2++)
-                                D[i](j, k)(d1,d2) = 1.0;}
+                    // Initialize
+                    for(int d1=0;d1<p.n_dof[i];d1++){
+                        for(int d2=0;d2<p.n_dof[i];d2++)
+                            D[i](j, k)(d1,d2) = 1.0;}
     }}}
     
     // phi_null: [level](X)(idx_nearnull,color) 
@@ -225,13 +235,10 @@ int main (int argc, char *argv[])
     f_compute_lvl0_matrix(D, U, p);      // Compute lvl0 D matrix=gauged Laplacian
     resmag=f_get_residue_mag(D[0],phi[0],r[0],0,p);
     cout<<"\nResidue "<<resmag<<endl;
-    int quad=4;
-    int t_flag=1;
-    int n_copies=1;
     
     printf("\nUsing quadrant %d\n",quad);
+    printf("Telescoping flag is %d\n",t_flag);
     if(t_flag==1){ 
-        printf("Telescoping flag is %d\n",t_flag);
         printf("Num copies %d\n",n_copies);
         printf("jsize: %d\tjndof: %d\n",j_size,j_ndof);
     }
@@ -239,58 +246,63 @@ int main (int argc, char *argv[])
     /* ###################### */
     // Setup operators for adaptive Mgrid
     if (p.nlevels>0){
-        if (gen_null){// Generate near-null vectors and store them
+        
+        if (gen_null){// Generate near-null vectors and write them to file
             printf("Generating near null vectors\n");
-            for(lvl=0;lvl<p.nlevels;lvl++){
+            for(lvl=0;lvl<p.nlevels;lvl++) {
                 printf("lvl %d\n",lvl);
-
-                if ((t_flag==1) && (lvl==p.nlevels-1)){ 
-                    cout<<"near null for non-telescoping lvl "<<lvl<<endl;
-                    for(int q_copy=0; q_copy<n_copies; q_copy++){
-                        //Compute near null vectors and normalize them
-                        f_near_null(phi_null_tel[q_copy], D[lvl],lvl, q_copy+1, 500, gs_flag, p);
-                        f_ortho(phi_null_tel[q_copy],lvl,q_copy+1, p);
-                        f_ortho(phi_null_tel[q_copy],lvl,q_copy+1, p);
-                        // Check orthogonality
-                        f_check_ortho(phi_null_tel[q_copy],lvl,q_copy+1, p);
-                        // Compute D matrix for lower level
-                        f_compute_coarse_matrix(D_tel[q_copy],D[lvl],phi_null_tel[q_copy], lvl, q_copy+1, p);
-                }}                
-                else {
-                    cout<<"Regular near null lvl "<<lvl<<endl;
-                    //Compute near null vectors and normalize them
-                    f_near_null(phi_null[lvl], D[lvl],lvl, quad, 500, gs_flag, p);
-                    f_ortho(phi_null[lvl],lvl,quad, p);
-                    f_ortho(phi_null[lvl],lvl,quad, p);
-                    // Check orthogonality
-                    f_check_ortho(phi_null[lvl],lvl,quad, p);
-                    // Compute D matrix for lower level
-                    f_compute_coarse_matrix(D[lvl+1],D[lvl],phi_null[lvl], lvl, quad, p);
-                }
+                f_near_null(phi_null[lvl], D[lvl],lvl, quad, 500, gs_flag, p); 
+                // Need to compute D_coarse for next level near-null
+                f_norm_nn(phi_null[lvl],lvl, quad, p);
+                f_ortho(phi_null[lvl],lvl,quad, p);
+                f_ortho(phi_null[lvl],lvl,quad, p);
+                // Check orthogonality
+                f_check_ortho(phi_null[lvl],lvl,quad, p);
+                // Compute D matrix for lower level
+                f_compute_coarse_matrix(D[lvl+1],D[lvl],phi_null[lvl], lvl, quad, p);
             }
-            // Write near null vectors to file
-        f_write_near_null(phi_null, phi_null_tel, p,t_flag);
+            f_write_near_null(phi_null, p,t_flag);
          }
+        else {// Read near null vectors from file
+            f_read_near_null(phi_null,p, t_flag);
+            
+        }
+        // Compute stuff for non-telescoping
+        for(lvl=0;lvl<p.nlevels;lvl++) {
+            // Need to compute D_coarse for next level near-null
+            f_norm_nn(phi_null[lvl],lvl, quad, p);
+            f_ortho(phi_null[lvl],lvl,quad, p);
+            f_ortho(phi_null[lvl],lvl,quad, p);
+            // Check orthogonality
+            f_check_ortho(phi_null[lvl],lvl,quad, p);
+            // Compute D matrix for lower level
+            f_compute_coarse_matrix(D[lvl+1],D[lvl],phi_null[lvl], lvl, quad, p);
 
-        else {// Read near null vectors from file and compute coarse D matrix
-            f_read_near_null(phi_null,phi_null_tel,p, t_flag);
-            for(lvl=0;lvl<p.nlevels;lvl++){
-                if ((t_flag==1) && (lvl==p.nlevels-1)){ 
-                    for(int q_copy=0; q_copy<n_copies; q_copy++){
-                        f_check_ortho(phi_null_tel[q_copy],lvl,q_copy+1, p);
-                        f_compute_coarse_matrix(D_tel[q_copy],D[lvl],phi_null_tel[q_copy], lvl, q_copy+1, p);
-                    }}
-                else {
-                    f_check_ortho(phi_null[lvl],lvl,quad, p);
-                    f_compute_coarse_matrix(D[lvl+1],D[lvl],phi_null[lvl], lvl, quad, p);
-            }}}
+        if ((t_flag==1) && (lvl==p.nlevels-1)){ // For non-telescoping create 4 copies
+            cout<<"near null for non-telescoping lvl "<<lvl<<endl;
+            for(int q_copy=0; q_copy<total_copies; q_copy++){
+
+                //copy phi_null[lowest] to phi_null_tel
+                for (int j = 0; j < p.size[p.nlevels-1]*p.size[p.nlevels-1]; j++){
+                    phi_null_tel[q_copy](j)=phi_null[p.nlevels-1](j);}
+
+                //Compute near null vectors and normalize them
+                f_norm_nn(phi_null_tel[q_copy],lvl, quad, p);
+                f_ortho(phi_null_tel[q_copy],lvl,q_copy+1, p);
+                f_ortho(phi_null_tel[q_copy],lvl,q_copy+1, p);
+                // Check orthogonality
+                f_check_ortho(phi_null_tel[q_copy],lvl,q_copy+1, p);
+                // Compute D matrix for lower level
+                f_compute_coarse_matrix(D_tel[q_copy],D[lvl],phi_null_tel[q_copy], lvl, q_copy+1, p);
+        }}}
     }
-    
+        
     // exit(1);
-    // Checks //
+    /* Checks of Adaptive Multigrid */
     for(lvl=0;lvl<p.nlevels+1;lvl++){
         int x,y,lf,nf,d1;
         
+        // Creating a random vector for checks
         lf=p.size[lvl];
         nf=p.n_dof[lvl];
         VArr1D vec(lf*lf);
@@ -314,7 +326,7 @@ int main (int argc, char *argv[])
                 f_test3_hermiticity(D_tel[q_copy],lvl,p);
                 // 4. Hermiticity <v|D|v>=real
                 f_test4_hermiticity_full(vec,D_tel[q_copy],lvl, p,q_copy+1);
-                }}   
+                }}  
         else {
             if (lvl>0){
                 // 1. Projection tests
@@ -367,8 +379,8 @@ int main (int argc, char *argv[])
                     }
                     // Average over values 
                     for (int j=0; j<(p.size[lvl-1]*p.size[lvl-1]); j++) for(int d1=0; d1<p.n_dof[lvl-1]; d1++){
-                        // phi[lvl-1][j]=phi[lvl-1][j]/((double)n_copies);}
-                        phi[lvl-1](j)(d1) = phi[lvl-1](j)(d1)/((double)n_copies); }
+                        // phi[lvl-1](j)(d1) = phi[lvl-1](j)(d1)/((double)n_copies); }
+                        phi[lvl-1](j)(d1) = phi[lvl-1](j)(d1); }
                 }
                         
                 else {

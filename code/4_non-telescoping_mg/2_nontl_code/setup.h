@@ -111,7 +111,7 @@ double f_g_norm(VArr1D vec, int level, int rescale, params p){
     
     g_norm=sqrt(g_norm); 
     if (isnan(g_norm)){
-        cout<<"gnorm is nan"<<g_norm<<endl;
+        cout<<"gnorm is nan\t"<<g_norm<<endl;
         cout<<vec(0)<<endl;
         exit(1);
     }
@@ -350,14 +350,41 @@ void f_near_null(MArr1D phi_null, MArr2D D, int level, int quad, int num_iters, 
             // printf("Post relaxation. Level %d:\tGlobal norm %25.20e\n",level,g_norm);
 
             // Block normalize near-null vectors
-            f_block_norm(phi_temp,level,quad, p);
+            // f_block_norm(phi_temp,level,quad, p);
             
             // Conjugate phi_null. This is to ensure gauge invariance. By storing as an nc x nf matrix, you are already transposing it. Now, also need to conjugate it.
             for(int x=0; x<L; x++) for(int y=0; y<L; y++) phi_null(x+y*L).row(d1)=phi_temp(x+y*L).conjugate();      // Assign near-null vector to phi_null
         }
-    
     // printf("Check null vectors are not 0\t");
     // f_check_null_norm(phi_null,level,quad,p,1);  
+}
+
+void f_norm_nn(MArr1D phi_null, int level, int quad, params p){
+    // Normalize near-null vectors depending on quadrant
+    double norm,g_norm;
+    int L,Lc,x,y,num,d1,d2,nf,nc;
+    int iters_per_norm;
+    
+    L=p.size[level];
+    Lc=p.size[level+1]; // Coarse part only required for blocking. Can't compute for last level as level+1 doesn't exist for last level.
+    
+    nf=p.n_dof[level];
+    nc=p.n_dof[level+1];
+    
+    VArr1D phi_temp(L*L);
+    for (int j = 0; j < L*L ; j++)    phi_temp(j) = ColorVector(nf);
+    
+    if (num==0) num=1; // num should be at least 1
+        // Relaxation with zero source
+        for(d1=0; d1< nc; d1++){
+            for(int x=0;x<L; x++) for(int y=0; y<L; y++) phi_temp(x+y*L)=phi_null(x+y*L).row(d1); 
+            // Block normalize near-null vectors
+            f_block_norm(phi_temp,level,quad, p);
+            
+            // Conjugate phi_null. This is to ensure gauge invariance. By storing as an nc x nf matrix, you are already transposing it. Now, also need to conjugate it.
+            // for(int x=0; x<L; x++) for(int y=0; y<L; y++) phi_null(x+y*L).row(d1)=phi_temp(x+y*L).conjugate();      // Assign near-null vector to phi_null
+            for(int x=0; x<L; x++) for(int y=0; y<L; y++) phi_null(x+y*L).row(d1)=phi_temp(x+y*L);      // Assign near-null vector to phi_null
+        }
 }
 
 void f_ortho(MArr1D null, int level, int quad, params p) {
@@ -480,7 +507,7 @@ void f_check_ortho(MArr1D null,int level, int quad, params p){
             }}}
 }
 
-void f_write_near_null(MArr1D* phi_null, MArr1D* phi_null_tel, params p, int t_flag){
+void f_write_near_null(MArr1D* phi_null, params p, int t_flag){
     // Write near null vectors to file
     FILE* pfile;
     char fname[1024];
@@ -489,20 +516,14 @@ void f_write_near_null(MArr1D* phi_null, MArr1D* phi_null_tel, params p, int t_f
     
     pfile = fopen (fname,"w"); 
     for(int lvl=0; lvl<p.nlevels; lvl++){
-        if ((t_flag==1) && (lvl==p.nlevels-1)){ 
-            for(int i=0; i<4; i++){
-                for (int j = 0; j < p.size[lvl]*p.size[lvl]; j++){
-                    for(int d1=0;d1<p.n_dof[lvl+1];d1++) for(int d2=0;d2<p.n_dof[lvl];d2++){
-                        fprintf(pfile,"%20.25e+i%20.25e\n",real(phi_null_tel[i](j)(d1,d2)),imag(phi_null_tel[i](j)(d1,d2))); }}} }
-        else {
-           for (int j = 0; j < p.size[lvl]*p.size[lvl]; j++){
-                for(int d1=0;d1<p.n_dof[lvl+1];d1++) for(int d2=0;d2<p.n_dof[lvl];d2++){
-                    fprintf(pfile,"%20.25e+i%20.25e\n",real(phi_null[lvl](j)(d1,d2)),imag(phi_null[lvl](j)(d1,d2))); }}}  
+       for (int j = 0; j < p.size[lvl]*p.size[lvl]; j++){
+            for(int d1=0;d1<p.n_dof[lvl+1];d1++) for(int d2=0;d2<p.n_dof[lvl];d2++){
+                fprintf(pfile,"%20.25e+i%20.25e\n",real(phi_null[lvl](j)(d1,d2)),imag(phi_null[lvl](j)(d1,d2))); }}
     }
     fclose(pfile);
 }
 
-void f_read_near_null(MArr1D* phi_null, MArr1D* phi_null_tel, params p, int t_flag){
+void f_read_near_null(MArr1D* phi_null, params p, int t_flag){
     // Write near null vectors to file
     FILE* pfile;
     char fname[1024];
@@ -513,18 +534,10 @@ void f_read_near_null(MArr1D* phi_null, MArr1D* phi_null_tel, params p, int t_fl
     pfile = fopen (fname,"r"); 
     
     for(int lvl=0; lvl<p.nlevels; lvl++){
-        if ((t_flag==1) && (lvl==p.nlevels-1)){ 
-            for(int i=0; i<4; i++){
-                for (int j = 0; j < p.size[lvl]*p.size[lvl]; j++){
-                    for(int d1=0;d1<p.n_dof[lvl+1];d1++) for(int d2=0;d2<p.n_dof[lvl];d2++){
-                        fscanf(pfile,"%lf+i%lf\n",&re,&im); 
-                        phi_null_tel[i](j)(d1,d2)=complex<double>(re,im);}}} }
-            
-        else {
-           for (int j = 0; j < p.size[lvl]*p.size[lvl]; j++){
-                for(int d1=0;d1<p.n_dof[lvl+1];d1++) for(int d2=0;d2<p.n_dof[lvl];d2++){
-                    fscanf(pfile,"%lf+i%lf\n",&re,&im); 
-                    phi_null[lvl](j)(d1,d2)=complex<double>(re,im);}}}
+        for (int j = 0; j < p.size[lvl]*p.size[lvl]; j++){
+            for(int d1=0;d1<p.n_dof[lvl+1];d1++) for(int d2=0;d2<p.n_dof[lvl];d2++){
+                fscanf(pfile,"%lf+i%lf\n",&re,&im); 
+                phi_null[lvl](j)(d1,d2)=complex<double>(re,im);}}
     }
     fclose(pfile);
 }
