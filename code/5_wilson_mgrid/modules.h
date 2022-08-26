@@ -60,12 +60,12 @@ void f_compute_coarse_matrix(MArr2D Dc, MArr2D Df, MArr1D phi_null, int level, i
     */
     // Diagonal element : |a^2| x1 + |b^2| x2 + |c^2| x3 + |d^2| x4 +  a* D_ab b + b* D_ba a + b* D_bc c + c* D_cb b + c* D_cd d + d* D_dc c + d* D_da a + a* D_ad d
     for(xc=0; xc<Lc; xc++) for(yc=0; yc<Lc; yc++) {
-        f_get_base_site(base, quad, xc, yc, Lf, p);
+        f_get_base_site(base, level, quad, xc, yc, Lf, p);
         
         for(d1=0;d1<nc;d1++) for(d2=0; d2<nc; d2++) for (i=0;i<5;i++) Dc(xc+yc*Lc,i)(d1,d2)=Complex(0,0); 
         // Compute norm by summing over block
         
-        for(x1=0; x1<p.block_x; x1++) for(y1=0; y1<p.block_y; y1++){
+        for(x1=0; x1<p.block_x[level]; x1++) for(y1=0; y1<p.block_y[level]; y1++){
             xf=(base.x+x1)%Lf;
             yf=(base.y+y1)%Lf;
             
@@ -75,22 +75,22 @@ void f_compute_coarse_matrix(MArr2D Dc, MArr2D Df, MArr1D phi_null, int level, i
             Dc(xc+yc*Lc,0)     += phi_null(xf+yf*Lf) * Df(xf+yf*Lf,0)* phi_null(xf+yf*Lf).adjoint();
             
             // cross-site, same-block contribution
-            if (xf!=(base.x+p.block_x-1)%Lf)
+            if (xf!=(base.x+p.block_x[level]-1)%Lf)
                 Dc(xc+yc*Lc,0) += phi_null(xf+yf*Lf) * Df(xf+yf*Lf,1)* phi_null((xf+1  )%Lf+yf*Lf).adjoint();
             if (xf!=base.x)
                 Dc(xc+yc*Lc,0) += phi_null(xf+yf*Lf) * Df(xf+yf*Lf,2)* phi_null((xf-1+Lf)%Lf+yf*Lf).adjoint();
-            if (yf!=(base.y+p.block_y-1)%Lf)
+            if (yf!=(base.y+p.block_y[level]-1)%Lf)
                 Dc(xc+yc*Lc,0) += phi_null(xf+yf*Lf) * Df(xf+yf*Lf,3)* phi_null(xf+((yf+1   )%Lf)*Lf).adjoint();
             if (yf!=base.y)
                 Dc(xc+yc*Lc,0) += phi_null(xf+yf*Lf) * Df(xf+yf*Lf,4)* phi_null(xf+((yf-1+Lf)%Lf)*Lf).adjoint();
             
             // Off-diagonal terms
             // cross-block contributions only
-            if (xf==(base.x+p.block_x-1)%Lf ) // Choose the surface x = x_higher
+            if (xf==(base.x+p.block_x[level]-1)%Lf ) // Choose the surface x = x_higher
                 Dc(xc+yc*Lc,1) += phi_null(xf+yf*Lf) * Df(xf+yf*Lf,1)* phi_null((xf+1  )%Lf+yf*Lf).adjoint();
             if (xf==base.x) // Choose the surface x = x_lower
                 Dc(xc+yc*Lc,2) += phi_null(xf+yf*Lf) * Df(xf+yf*Lf,2)* phi_null((xf-1+Lf)%Lf+yf*Lf).adjoint();
-            if (yf==(base.y+p.block_y-1)%Lf )   // Choose the surface y = y_higher
+            if (yf==(base.y+p.block_y[level]-1)%Lf )   // Choose the surface y = y_higher
                 Dc(xc+yc*Lc,3) += phi_null(xf+yf*Lf) * Df(xf+yf*Lf,3)* phi_null(xf+((yf+1   )%Lf)*Lf).adjoint();
             if (yf==base.y) // Choose the surface y = y_lower
                 Dc(xc+yc*Lc,4) += phi_null(xf+yf*Lf) * Df(xf+yf*Lf,4)* phi_null(xf+((yf-1+Lf)%Lf)*Lf).adjoint();
@@ -139,11 +139,11 @@ void f_restriction(VArr1D vec_c, VArr1D vec_f, MArr1D phi_null, int level, param
     nc=p.n_dof[level+1];
     
     for(xc=0; xc<Lc; xc++) for(yc=0; yc<Lc; yc++) {
-        f_get_base_site(base, quad, xc, yc, Lf, p);
+        f_get_base_site(base, level, quad, xc, yc, Lf, p);
         
         for(d1=0;d1<nc;d1++)    vec_c(xc+yc*Lc)(d1)=Complex(0.0,0.0);
         // Compute by summing over block
-        for(x1=0; x1<p.block_x; x1++) for(y1=0; y1<p.block_y; y1++){
+        for(x1=0; x1<p.block_x[level]; x1++) for(y1=0; y1<p.block_y[level]; y1++){
             xf=(base.x+x1)%Lf;
             yf=(base.y+y1)%Lf;
             vec_c(xc+yc*Lc)+=phi_null(xf+yf*Lf)*vec_f(xf+yf*Lf); 
@@ -165,10 +165,10 @@ void f_prolongation(VArr1D vec_f,VArr1D vec_c, MArr1D phi_null,int level,params 
     nf=p.n_dof[level-1];
     
     for(xc=0; xc<Lc; xc++) for(yc=0; yc<Lc; yc++) {
-        f_get_base_site(base, quad, xc, yc, Lf, p);
+        f_get_base_site(base, level-1, quad, xc, yc, Lf, p);
         
         // Compute by summing over block
-        for(x1=0; x1<p.block_x; x1++) for(y1=0; y1<p.block_y; y1++){
+        for(x1=0; x1<p.block_x[level-1]; x1++) for(y1=0; y1<p.block_y[level-1]; y1++){
             xf=(base.x+x1)%Lf;
             yf=(base.y+y1)%Lf;
             vec_f(xf+yf*Lf)+=phi_null(xf+yf*Lf).adjoint()*vec_c(xc+yc*Lc); 

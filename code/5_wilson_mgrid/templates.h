@@ -10,9 +10,11 @@ typedef struct{
     int size[20]; // Lattice size 
     int n_dof[20]; // Degrees of freedom per site
     int n_dof_scale; // Factor of increase in dof per site with level
-    int block_x,block_y;
+    int block_x[20],block_y[20]; // Block sizes for each level
+    int blk_x,blk_y; // Default block sizes for all levels
     double scale[20]; // scale factor 
     double a[20]; // Lattice spacing 
+    
 } params ;
 
 /*  ### Define 3D,2D and 1D array templates ## */ 

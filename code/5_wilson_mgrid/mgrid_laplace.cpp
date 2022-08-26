@@ -1,5 +1,5 @@
-/* Venkitesh Ayyar, Jan 13, 2022
-Implementing non-telescoping method for 2D laplace Multigrid
+/* Venkitesh Ayyar, Aug 25, 2022
+2D Wilson Multigrid
 */
 #include <iostream>
 #include <iomanip>
@@ -40,24 +40,15 @@ int main (int argc, char *argv[])
     gs_flag=1;  // Gauss-seidel = 1, Jacobi = 0
     quad=2;
     int gen_null; // Flag for generating near null vectors
-    int t_flag,n_copies; // t_flag=1 for non-telescoping
     int total_copies=4; // max number of copies
     
     L=atoi(argv[1]); // 32
     num_iters=atoi(argv[2]); // number of Gauss-Seidel iterations  20
-    block_x=atoi(argv[3]); // Size of block x 2
-    block_y=atoi(argv[3]); // Size of block y 2
+    block_x=atoi(argv[3]); // default Size of block x 2
+    block_y=atoi(argv[3]); // default Size of block y 2
     gen_null=atoi(argv[4]); // 0
     p.m=atof(argv[5]); // -0.07
     p.nlevels=atoi(argv[6]); // 4
-    t_flag=atoi(argv[7]);// 0 or 1
-    n_copies=atoi(argv[8]); // 4
-    
-    if (t_flag==1 && p.nlevels<2){ // Ensure at least 2 levels for non-telescoping
-        printf("Need at least 2 levels for non-telescoping. Have %d",p.nlevels);
-        exit(1);
-    }
-    
     
     //m_square=p.m*p.m;
     m_square=p.m;
@@ -73,32 +64,37 @@ int main (int argc, char *argv[])
     p.scale[0]=1.0/(4.0+m_square*p.a[0]*p.a[0]);// 1/(4+m^2 a^2) 
     p.n_dof[0]=1;
     p.n_dof_scale=2; // N_dof at higher levels
-    p.block_x=block_x;
-    p.block_y=block_y;
     
-    max_levels=ceil(log2(L)/log2(p.block_x)) ; // L = 8, block=2 -> max_levels=3 
-    printf("Max levels for lattice %d with block size %d is %d\n",L,block_x,max_levels);
+//     max_levels=ceil(log2(L)/log2(p.block_x)) ; // L = 8, block=2 -> max_levels=3 
+//     printf("Max levels for lattice %d with block size %d is %d\n",L,block_x,max_levels);
     
-    if (p.nlevels>max_levels){
-        printf(" Error. Too many levels %d. Can only have %d levels for block size %d for lattice of size  %d",p.nlevels,max_levels,p.block_x,p.L); // Need to change for Lx != Ly
-        exit(1);
-    }
+//     if (p.nlevels>max_levels){
+//         printf(" Error. Too many levels %d. Can only have %d levels for block size %d for lattice of size  %d\n",p.nlevels,max_levels,p.block_x,p.L); // Need to change for Lx != Ly
+//         exit(1);
+//     }
     
-    printf("V cycle with %d levels for lattice of size %d. Max levels %d\n",p.nlevels,L,max_levels);
+    // printf("V cycle with %d levels for lattice of size %d. Max levels %d\n",p.nlevels,L,max_levels);
     
+    p.block_x[0]=4; p.block_y[0]=4;
     for(int level=1;level<p.nlevels+1;level++){
-        p.size[level]=p.size[level-1]/p.block_x;   // Need to change for Lx != Ly
-        // p.a[level]=2.0*p.a[level-1];
+        p.block_x[level]=block_x;
+        p.block_y[level]=block_y;
+        p.size[level]=p.size[level-1]/p.block_x[level-1];   // Need to change for Lx != Ly  
+        // p.a[level]=2.0*p.a[level-1]; 
         p.a[level]=1.0; // For adaptive Mgrid, set a=1
         p.scale[level]=1.0/(4+m_square*p.a[level]*p.a[level]);
         // p.n_dof[level]=p.n_dof[level-1]*p.n_dof_scale;
         p.n_dof[level]=p.n_dof_scale; // Fixing ndof at lower levels to scale=2
     }
     
-    printf("\nLevel\tL\tN_dof");
+    printf("\nLevel\tL\tN_dof\tblock_x\tblock_y");
     for(int level=0;level<p.nlevels+1;level++){
-        printf("\n%d\t%d\t%d",level,p.size[level],p.n_dof[level]);}
+        printf("\n%d\t%d\t%d\t%d\t%d",level,p.size[level],p.n_dof[level],p.block_x[level],p.block_y[level]);}
     
+    for(int level=0;level<p.nlevels+1;level++)
+        if (p.size[level]<1) { 
+            printf("\nAt level %d, lattice size goes to zero. Need to reduce levels\n",level);
+            exit(1);}
     // Intialize random state
     // std::random_device rd;
     // std::mt19937 gen(rd());
@@ -183,48 +179,6 @@ int main (int argc, char *argv[])
                 phi_null[i](j)(d1,d2)=dist(gen);}
     }}
 
-    // Arrays for telescoping procedure. 4 arrays for last layer
-    VArr1D phi_tel[4],r_tel[4];
-    int j_size=p.size[p.nlevels];
-    int j_ndof=p.n_dof[p.nlevels]; // dof in lowest levels
-    
-    for (int q_copy=0; q_copy<4; q_copy++){
-        phi_tel[q_copy]=VArr1D(j_size*j_size);
-        r_tel[q_copy]=VArr1D(j_size*j_size);
-        for (int j = 0; j < j_size*j_size ; j++){
-            phi_tel[q_copy](j) = ColorVector(j_ndof);
-            r_tel[q_copy](j) = ColorVector(j_ndof);
-            // Initialize
-            for(int d1=0;d1<j_ndof;d1++){
-                phi_tel[q_copy](j)(d1) = 0.0;
-                r_tel[q_copy](j)(d1)=0.0;
-            }}}
-    
-    MArr2D D_tel[4];
-    for(int q_copy=0; q_copy<4; q_copy++){
-        D_tel[q_copy]=MArr2D(j_size*j_size,5);
-            for (int j = 0; j < j_size*j_size; j++){
-                for (int k = 0; k < 5; k++){
-                    D_tel[q_copy](j, k) = ColorMatrix(j_ndof,j_ndof);
-                        // Initialize
-                        for(int d1=0; d1<j_ndof; d1++){
-                            for(int d2=0; d2<j_ndof; d2++)
-                                D_tel[q_copy](j, k)(d1,d2) = 1.0;}
-                        }}}
-    
-    MArr1D phi_null_tel[4];
-    // Note: phi_null_tel lives on second-lowest level. These are sizes for p.nlevels-1
-    int j_size2=p.size[p.nlevels-1];  
-    int j_ndof2=p.n_dof[p.nlevels-1]; 
-    for(int q_copy=0; q_copy<4; q_copy++){
-        phi_null_tel[q_copy]=MArr1D(j_size2*j_size2); 
-        for (int j = 0; j < j_size2*j_size2; j++){
-            phi_null_tel[q_copy](j) = ColorMatrix(j_ndof,j_ndof2);
-            // Random initialization 
-            for(int d1=0;d1<j_ndof;d1++) for(int d2=0;d2<j_ndof2;d2++){
-                phi_null_tel[q_copy](j)(d1,d2)=dist(gen);}
-    }}
-    
     /* ************************* */
     // Define sources
     r[0](0)(0)=1.0;
@@ -237,11 +191,7 @@ int main (int argc, char *argv[])
     cout<<"\nResidue "<<resmag<<endl;
     
     printf("\nUsing quadrant %d\n",quad);
-    printf("Telescoping flag is %d\n",t_flag);
-    if(t_flag==1){ 
-        printf("Num copies %d\n",n_copies);
-        printf("jsize: %d\tjndof: %d\n",j_size,j_ndof);
-    }
+
     
     /* ###################### */
     // Setup operators for adaptive Mgrid
@@ -261,13 +211,12 @@ int main (int argc, char *argv[])
                 // Compute D matrix for lower level
                 f_compute_coarse_matrix(D[lvl+1],D[lvl],phi_null[lvl], lvl, quad, p);
             }
-            f_write_near_null(phi_null, p,t_flag);
+            f_write_near_null(phi_null, p);
          }
         else {// Read near null vectors from file
-            f_read_near_null(phi_null,p, t_flag);
-            
+            f_read_near_null(phi_null,p);
         }
-        // Compute stuff for non-telescoping
+        
         for(lvl=0;lvl<p.nlevels;lvl++) {
             // Need to compute D_coarse for next level near-null
             f_norm_nn(phi_null[lvl],lvl, quad, p);
@@ -277,24 +226,7 @@ int main (int argc, char *argv[])
             f_check_ortho(phi_null[lvl],lvl,quad, p);
             // Compute D matrix for lower level
             f_compute_coarse_matrix(D[lvl+1],D[lvl],phi_null[lvl], lvl, quad, p);
-
-        if ((t_flag==1) && (lvl==p.nlevels-1)){ // For non-telescoping create 4 copies
-            cout<<"near null for non-telescoping lvl "<<lvl<<endl;
-            for(int q_copy=0; q_copy<total_copies; q_copy++){
-
-                //copy phi_null[lowest] to phi_null_tel
-                for (int j = 0; j < p.size[p.nlevels-1]*p.size[p.nlevels-1]; j++){
-                    phi_null_tel[q_copy](j)=phi_null[p.nlevels-1](j);}
-
-                //Compute near null vectors and normalize them
-                f_norm_nn(phi_null_tel[q_copy],lvl, quad, p);
-                f_ortho(phi_null_tel[q_copy],lvl,q_copy+1, p);
-                f_ortho(phi_null_tel[q_copy],lvl,q_copy+1, p);
-                // Check orthogonality
-                f_check_ortho(phi_null_tel[q_copy],lvl,q_copy+1, p);
-                // Compute D matrix for lower level
-                f_compute_coarse_matrix(D_tel[q_copy],D[lvl],phi_null_tel[q_copy], lvl, q_copy+1, p);
-        }}}
+        }
     }
         
     // exit(1);
@@ -313,32 +245,16 @@ int main (int argc, char *argv[])
         
         printf("\nlvl %d\n", lvl);
         
-        if ((t_flag==1) && (lvl==p.nlevels)){ // note the change: lvl must be bot level
-            for(int q_copy=0; q_copy<n_copies; q_copy++){
-                if (lvl>0){
-                    cout<<"NTL tests lvl "<<lvl<<endl;
-                    // 1. Projection tests
-                    f_test1_restriction_prolongation(vec,phi_null_tel[q_copy],lvl-1, p, q_copy+1);
-                    // 2. D_fine vs D_coarse test
-                    f_test2_D(vec,D_tel[q_copy],D[lvl-1],phi_null_tel[q_copy],lvl-1, p, q_copy+1);    
-                }
-                // 3. Hermiticity
-                f_test3_hermiticity(D_tel[q_copy],lvl,p);
-                // 4. Hermiticity <v|D|v>=real
-                f_test4_hermiticity_full(vec,D_tel[q_copy],lvl, p,q_copy+1);
-                }}  
-        else {
-            if (lvl>0){
-                // 1. Projection tests
-                f_test1_restriction_prolongation(vec,phi_null[lvl-1],lvl-1, p, quad);
-                // 2. D_fine vs D_coarse test
-                f_test2_D(vec,D[lvl],D[lvl-1],phi_null[lvl-1],lvl-1, p, quad);    
-            }
-            // 3. Hermiticity
-            f_test3_hermiticity(D[lvl],lvl,p);
-            // 4. Hermiticity <v|D|v>=real
-            f_test4_hermiticity_full(vec,D[lvl],lvl, p,quad);
+        if (lvl>0){
+            // 1. Projection tests
+            f_test1_restriction_prolongation(vec,phi_null[lvl-1],lvl-1, p, quad);
+            // 2. D_fine vs D_coarse test
+            f_test2_D(vec,D[lvl],D[lvl-1],phi_null[lvl-1],lvl-1, p, quad);    
         }
+        // 3. Hermiticity
+        f_test3_hermiticity(D[lvl],lvl,p);
+        // 4. Hermiticity <v|D|v>=real
+        f_test4_hermiticity_full(vec,D[lvl],lvl, p,quad);
     }
     // exit(1);
     
@@ -356,37 +272,13 @@ int main (int argc, char *argv[])
             for(lvl=0;lvl<p.nlevels;lvl++){
                 relax(D[lvl],phi[lvl],r[lvl], lvl, num_iters,p,gs_flag); // Relaxation
                 //Project to coarse lattice 
-                
-                if((lvl==p.nlevels-1)&&(t_flag==1)){// non-telescoping only for going to the lowest level
-                    for(int q_copy=0;q_copy<n_copies;q_copy++){ // Project 4 independent ways
-                        f_restriction_res(r_tel[q_copy],r[lvl],phi[lvl],D[lvl],phi_null_tel[q_copy], lvl,p,q_copy+1); } 
-                }
-                
-                else f_restriction_res(r[lvl+1],r[lvl],phi[lvl],D[lvl], phi_null[lvl], lvl,p,quad); 
-                // printf("\nlvl %d, %d\n",lvl,p.size[lvl]);
+                f_restriction_res(r[lvl+1],r[lvl],phi[lvl],D[lvl], phi_null[lvl], lvl,p,quad); 
             }
         
             // come up: coarse -> fine
             for(lvl=p.nlevels;lvl>=0;lvl--){
-                if((lvl==p.nlevels)&&(t_flag==1)){// non-telescoping only for coming up from the lowest level
-                    // Need to manually reset phi_tel values 
-                    for (int q_copy=0; q_copy<n_copies; q_copy++) for (int j=0; j<j_size*j_size ; j++) for(int d1=0; d1<j_ndof; d1++) phi_tel[q_copy](j)(d1) = 0.0;
-
-                    for(int q_copy=0; q_copy<n_copies; q_copy++){ // Project 4 independent ways
-                        relax(D_tel[q_copy], phi_tel[q_copy], r_tel[q_copy], lvl, num_iters,p,gs_flag); // Relaxation
-                        // if(lvl>0) f_prolongate_phi(phi[lvl-1],phi_tel[q_copy], phi_null[lvl-1], lvl,p,q_copy+1);
-                        if(lvl>0) f_prolongate_phi(phi[lvl-1], phi_tel[q_copy], phi_null_tel[q_copy], lvl,p,q_copy+1);
-                    }
-                    // Average over values 
-                    for (int j=0; j<(p.size[lvl-1]*p.size[lvl-1]); j++) for(int d1=0; d1<p.n_dof[lvl-1]; d1++){
-                        // phi[lvl-1](j)(d1) = phi[lvl-1](j)(d1)/((double)n_copies); }
-                        phi[lvl-1](j)(d1) = phi[lvl-1](j)(d1); }
-                }
-                        
-                else {
-                    relax(D[lvl],phi[lvl],r[lvl], lvl, num_iters,p,gs_flag); // Relaxation
-                    if(lvl>0) f_prolongate_phi(phi[lvl-1],phi[lvl], phi_null[lvl-1], lvl,p,quad);
-                    }
+                relax(D[lvl],phi[lvl],r[lvl], lvl, num_iters,p,gs_flag); // Relaxation
+                if(lvl>0) f_prolongate_phi(phi[lvl-1],phi[lvl], phi_null[lvl-1], lvl,p,quad);
                 }
         }
         // No Multi-grid, just Relaxation
@@ -396,7 +288,7 @@ int main (int argc, char *argv[])
         if (resmag < res_threshold) {  // iter+1 everywhere below since iteration is complete
             printf("\nLoop breaks at iteration %d with residue %e < %e",iter+1,resmag,res_threshold); 
             printf("\nL %d\tm %f\tnlevels %d\tnum_per_level %d\tAns %d\n",L,m_square,p.nlevels,num_iters,iter+1);
-            fprintf(pfile1,"%d\t%d\t%f\t%d\t%d\t%d\t%d\t%d\n",L,num_iters,m_square,p.block_x,p.block_y,p.n_dof_scale,p.nlevels,iter+1);
+            fprintf(pfile1,"%d\t%d\t%f\t%d\t%d\t%d\n",L,num_iters,m_square,p.n_dof_scale,p.nlevels,iter+1);
             f_write_op(phi[0],r[0], iter+1, pfile2, p); 
             f_write_residue(D[0],phi[0],r[0],0, iter+1, pfile3, p);
             break;}

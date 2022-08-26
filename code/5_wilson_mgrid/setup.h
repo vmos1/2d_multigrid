@@ -1,11 +1,11 @@
 #pragma once
 
-void f_get_base_site(site &base, int quad, int xc, int yc, int Lf, params p){
+void f_get_base_site(site &base, int level, int quad, int xc, int yc, int Lf, params p){
     // Select base.x and base.y based on quadrant
-    if      (quad==1) {base.x=p.block_x * xc;               base.y=p.block_y * yc; }
-    else if (quad==2) {base.x=(p.block_x * xc -1 +Lf )%Lf;  base.y=p.block_y * yc; }
-    else if (quad==3) {base.x=(p.block_x * xc -1 +Lf )%Lf;  base.y=(p.block_y * yc - 1 +Lf)%Lf; }
-    else if (quad==4) {base.x=p.block_x * xc;               base.y=(p.block_y * yc - 1 +Lf)%Lf; }
+    if      (quad==1) {base.x=p.block_x[level] * xc;               base.y=p.block_y[level] * yc; }
+    else if (quad==2) {base.x=(p.block_x[level] * xc -1 +Lf )%Lf;  base.y=p.block_y[level] * yc; }
+    else if (quad==3) {base.x=(p.block_x[level] * xc -1 +Lf )%Lf;  base.y=(p.block_y[level] * yc - 1 +Lf)%Lf; }
+    else if (quad==4) {base.x=p.block_x[level] * xc;               base.y=(p.block_y[level] * yc - 1 +Lf)%Lf; }
     else { cout<<"Invalid input for quad"<<quad<<"Must be 1-4"<<endl; exit(1);  }
     // cout<<base.x<<"\t"<<base.y<<endl;
 }
@@ -132,11 +132,11 @@ void f_test_block(int level, int quad, params p){
     Lc= p.size[level+1];
     
     for(xc=0; xc<Lc; xc++) for(yc=0; yc<Lc; yc++) {
-        f_get_base_site(base, quad, xc, yc, L, p);
-        printf("%d,%d->%d,%d base:%d,%d\t\t",xc,yc,p.block_x*xc,p.block_y*yc,base.x,base.y);
+        f_get_base_site(base, level, quad, xc, yc, L, p);
+        printf("%d,%d->%d,%d base:%d,%d\t\t",xc,yc,p.block_x[level]*xc,p.block_y[level]*yc,base.x,base.y);
         
         // Compute norm by summing over block
-        for(x1=0; x1<p.block_x; x1++) for(y1=0; y1<p.block_y; y1++){
+        for(x1=0; x1<p.block_x[level]; x1++) for(y1=0; y1<p.block_y[level]; y1++){
             xf=(base.x+x1)%L;
             yf=(base.y+y1)%L;
             printf("%d,%d  ;",xf,yf);
@@ -157,13 +157,11 @@ void f_block_norm(VArr1D vec, int level, int quad, params p){
     n=p.n_dof[level];
     
     for(xc=0; xc<Lc; xc++) for(yc=0; yc<Lc; yc++) {
-        // base.x=p.block_x * xc;
-        // base.y=p.block_y * yc;
-        f_get_base_site(base, quad, xc, yc, L, p);
+        f_get_base_site(base, level, quad, xc, yc, L, p);
         norm=0.0;
         
         // Compute norm by summing over block
-        for(x1=0; x1<p.block_x; x1++) for(y1=0; y1<p.block_y; y1++){
+        for(x1=0; x1<p.block_x[level]; x1++) for(y1=0; y1<p.block_y[level]; y1++){
             xf=(base.x+x1)%L;
             yf=(base.y+y1)%L;
             norm+=vec(xf+yf*L).squaredNorm(); 
@@ -182,7 +180,7 @@ void f_block_norm(VArr1D vec, int level, int quad, params p){
             exit(1); }
         
         // Normalize:  Divide each value in block by norm to normalize 
-        for(x1=0; x1<p.block_x; x1++) for(y1=0; y1<p.block_y; y1++){
+        for(x1=0; x1<p.block_x[level]; x1++) for(y1=0; y1<p.block_y[level]; y1++){
             xf=(base.x+x1)%L;
             yf=(base.y+y1)%L;
             vec(xf+yf*L)/=norm;
@@ -203,14 +201,12 @@ void f_check_block_norm(VArr1D vec, int level, int quad, params p){
     n=p.n_dof[level];
     
     for(xc=0; xc<Lc; xc++) for(yc=0; yc<Lc; yc++) {
-        // base.x=p.block_x * xc;
-        // base.y=p.block_y * yc;
-        f_get_base_site(base, quad, xc, yc, L, p);
+        f_get_base_site(base, level, quad, xc, yc, L, p);
 
         norm=0.0;
         
         // Compute norm by summing over block
-        for(x1=0; x1<p.block_x; x1++) for(y1=0; y1<p.block_y; y1++){
+        for(x1=0; x1<p.block_x[level]; x1++) for(y1=0; y1<p.block_y[level]; y1++){
             xf=(base.x+x1)%L;
             yf=(base.y+y1)%L;
             norm+=vec(xf+yf*L).squaredNorm(); 
@@ -240,14 +236,12 @@ void f_check_vec_norm(VArr1D vec, int level, params p, int quad, int quit_flag){
     
     
     for(xc=0; xc<Lc; xc++) for(yc=0; yc<Lc; yc++)  {
-        // base.x=p.block_x * xc;
-        // base.y=p.block_y * yc;
-        f_get_base_site(base, quad, xc, yc, L, p);
+        f_get_base_site(base, level, quad, xc, yc, L, p);
 
         norm=0.0;
         
         // Compute norm by summing over block
-        for(x1=0; x1<p.block_x; x1++) for(y1=0; y1<p.block_y; y1++){
+        for(x1=0; x1<p.block_x[level]; x1++) for(y1=0; y1<p.block_y[level]; y1++){
             xf=(base.x+x1)%L;
             yf=(base.y+y1)%L;
             norm+=vec(xf+yf*L).squaredNorm(); 
@@ -283,14 +277,12 @@ void f_check_null_norm(MArr1D null, int level, int quad, params p, int quit_flag
     // Check nans in null
     
         for(xc=0; xc<Lc; xc++) for(yc=0; yc<Lc; yc++) for(d1=0;d1<nc;d1++){
-        // base.x=p.block_x * xc;
-        // base.y=p.block_y * yc;
-        f_get_base_site(base, quad, xc, yc, L, p);
+        f_get_base_site(base, level, quad, xc, yc, L, p);
 
         norm=0.0;
         
         // Compute norm by summing over block
-        for(x1=0; x1<p.block_x; x1++) for(y1=0; y1<p.block_y; y1++){
+        for(x1=0; x1<p.block_x[level]; x1++) for(y1=0; y1<p.block_y[level]; y1++){
             xf=(base.x+x1)%L;
             yf=(base.y+y1)%L;
             norm+=abs(null(xf+yf*L).row(d1).squaredNorm()); 
@@ -419,16 +411,14 @@ void f_ortho(MArr1D null, int level, int quad, params p) {
             for(int x=0;x<L; x++) for(int y=0; y<L; y++) phi_temp2(x+y*L)=null(x+y*L).row(d2);
             
             for(xc=0; xc<Lc; xc++) for(yc=0; yc<Lc; yc++) {
-                // base.x=p.block_x * xc;
-                // base.y=p.block_y * yc;
-                f_get_base_site(base, quad, xc, yc, L, p);
+                f_get_base_site(base, level, quad, xc, yc, L, p);
 
 
                 norm=0.0;
                 dot=Complex(0.0,0.0);
                 
                 // Compute norm by summing over block
-                for(x1=0; x1<p.block_x; x1++) for(y1=0; y1<p.block_y; y1++){
+                for(x1=0; x1<p.block_x[level]; x1++) for(y1=0; y1<p.block_y[level]; y1++){
                     xf=(base.x+x1)%L;
                     yf=(base.y+y1)%L;
                     
@@ -452,7 +442,7 @@ void f_ortho(MArr1D null, int level, int quad, params p) {
                     cout<<phi_temp2(xf+yf*L)<<endl;
                     exit(1);}                    
 
-                for(x1=0; x1<p.block_x; x1++) for(y1=0; y1<p.block_y; y1++){
+                for(x1=0; x1<p.block_x[level]; x1++) for(y1=0; y1<p.block_y[level]; y1++){
                     xf=(base.x+x1)%L;
                     yf=(base.y+y1)%L;
                     // Can avoid dividing by norm, since it is 1.
@@ -490,12 +480,12 @@ void f_check_ortho(MArr1D null,int level, int quad, params p){
             
             for(xc=0; xc<Lc; xc++) for(yc=0; yc<Lc; yc++) {
                 
-                f_get_base_site(base, quad, xc, yc, Lf, p);
+                f_get_base_site(base, level, quad, xc, yc, Lf, p);
 
                 ans=Complex(0.0,0.0);
 
                 // Compute norm by summing over block
-                for(x1=0; x1<p.block_x; x1++) for(y1=0; y1<p.block_y; y1++){
+                for(x1=0; x1<p.block_x[level]; x1++) for(y1=0; y1<p.block_y[level]; y1++){
                     xf=(base.x+x1)%Lf;
                     yf=(base.y+y1)%Lf;
                     ans+=null(xf+yf*Lf).row(d1).dot(null(xf+yf*Lf).row(d2));
@@ -507,11 +497,11 @@ void f_check_ortho(MArr1D null,int level, int quad, params p){
             }}}
 }
 
-void f_write_near_null(MArr1D* phi_null, params p, int t_flag){
+void f_write_near_null(MArr1D* phi_null, params p){
     // Write near null vectors to file
     FILE* pfile;
     char fname[1024];
-    sprintf(fname,"Near-null_L%d_blk%d_ndof%d.txt",p.size[0],p.block_x,p.n_dof_scale);
+    sprintf(fname,"Near-null_L%d_blk%d_ndof%d.txt",p.size[0],p.block_x[0],p.n_dof_scale);
     cout<<"Writing near_null vectors to file\t"<<fname<<endl;
     
     pfile = fopen (fname,"w"); 
@@ -523,11 +513,11 @@ void f_write_near_null(MArr1D* phi_null, params p, int t_flag){
     fclose(pfile);
 }
 
-void f_read_near_null(MArr1D* phi_null, params p, int t_flag){
+void f_read_near_null(MArr1D* phi_null, params p){
     // Write near null vectors to file
     FILE* pfile;
     char fname[1024];
-    sprintf(fname,"Near-null_L%d_blk%d_ndof%d.txt",p.size[0],p.block_x,p.n_dof_scale);
+    sprintf(fname,"Near-null_L%d_blk%d_ndof%d.txt",p.size[0],p.block_x[0],p.n_dof_scale);
     cout<<"Reading near_null vectors from file"<<fname<<endl;
     
     double re,im;
