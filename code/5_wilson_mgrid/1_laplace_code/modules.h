@@ -223,7 +223,7 @@ void f_write_op(VArr1D phi, VArr1D r, int iter, FILE* pfile2, params p){
     
     for(int x=0; x<L; x++)  for(int y=0; y<L; y++){
         for(int d=0; d<p.n_dof[0]; d++){
-            fprintf(pfile2,"%f+i%f,",real(phi(x+L*y)(d)),imag(phi(x+L*y)(d))); }}
+            fprintf(pfile2,"%20.25e+i%20.25e,",real(phi(x+L*y)(d)),imag(phi(x+L*y)(d))); }}
     fprintf(pfile2,"\n");
 }
 
@@ -243,7 +243,7 @@ void f_write_residue(MArr2D D, VArr1D phi, VArr1D b, int level, int iter, FILE* 
     
     for(int x=0; x<L; x++)  for(int y=0; y<L; y++){
         for(int d=0; d<p.n_dof[level]; d++){
-            fprintf(pfile3,"%f+i%f,",real(rtemp(x+L*y)(d)),imag(rtemp(x+L*y)(d))); }}
+            fprintf(pfile3,"%20.25e+i%20.25e,",real(rtemp(x+L*y)(d)),imag(rtemp(x+L*y)(d))); }}
     fprintf(pfile3,"\n"); 
 }
 
@@ -252,7 +252,7 @@ void f_write_residue_mag(double* resmag, int iter, FILE* pfile, params p){
     
     fprintf(pfile,"%d,",iter);
     for(int lvl=0;lvl<p.nlevels+1;lvl++){
-        fprintf(pfile,"%5.10e,",resmag[lvl]); }
+        fprintf(pfile,"%20.25e,",resmag[lvl]); }
     fprintf(pfile,"\n"); 
     fflush(pfile);
 }
