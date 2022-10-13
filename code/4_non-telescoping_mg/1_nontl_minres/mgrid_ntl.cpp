@@ -38,7 +38,7 @@ int main (int argc, char *argv[])
     // #################### 
     // Set parameters
     gs_flag=1;  // Gauss-seidel = 1, Jacobi = 0
-    quad=2;
+    quad=1;
     int gen_null; // Flag for generating near null vectors
     int t_flag,n_copies; // t_flag=1 for non-telescoping
     int total_copies=4; // max number of copies
@@ -136,7 +136,7 @@ int main (int argc, char *argv[])
     
     // Read heat-bath gauge field
     char fname[100];
-    double beta=6.0;
+    double beta=128.0;
     sprintf(fname,"gauge_config_files/phase_%d_b%0.1f.dat",p.size[0],beta); // phase_{L}_b{beta}.dat
     f_read_gaugeU_heatbath(fname,U, p);   // Read gauge field config from file
     f_plaquette(U,p);
@@ -183,12 +183,11 @@ int main (int argc, char *argv[])
                 phi_null[i](j)(d1,d2)=dist(gen);}
     }}
 
-    
     // Arrays for telescoping procedure. 4 arrays for last layer
-    
     int j_size, j_ndof;
     Complex a_copy[4];
-    for(int i=0; i<4; i++)  a_copy[i]=Complex(1.0,0.0); 
+    // for(int i=0; i<4; i++)  a_copy[i]=Complex(1.0,0.0);
+    for(int i=0; i<4; i++)  a_copy[i]=Complex(0.0,0.0);
     
     // Arrays for lowest level
     VArr1D phi_tel[4],r_tel[4];
@@ -196,7 +195,7 @@ int main (int argc, char *argv[])
     if (t_flag!=0 & p.nlevels>0){
         j_size=p.size[p.nlevels];
         j_ndof=p.n_dof[p.nlevels]; // dof in lowest levels
-
+        
         for (int q_copy=0; q_copy<4; q_copy++){
             phi_tel[q_copy]=VArr1D(j_size*j_size);
             r_tel[q_copy]=VArr1D(j_size*j_size);
@@ -259,10 +258,10 @@ int main (int argc, char *argv[])
     
     /* ************************* */
     // Define sources
-    r[0](0)(0)=1.0;
-    r[0](1+0*L)(0)=complex<double>(2.0,2.0);
+    // r[0](0)(0)=1.0;
+    // r[0](1+0*L)(0)=complex<double>(2.0,2.0);
     r[0](2+2*L)(0)=5.0;
-    r[0](3+3*L)(0)=7.5;
+    // r[0](3+3*L)(0)=7.5;
     
     f_compute_lvl0_matrix(D, U, p);      // Compute lvl0 D matrix=gauged Laplacian
     resmag=f_get_residue_mag(D[0],phi[0],r[0],0,p);
@@ -406,15 +405,18 @@ int main (int argc, char *argv[])
 
                     for(int q_copy=0; q_copy<n_copies; q_copy++){ // Project 4 independent ways
                         relax(D_tel[q_copy], phi_tel[q_copy], r_tel[q_copy], lvl, num_iters,p,gs_flag); // Relaxation
-                        f_prolongate_phi(phi_tel_f[q_copy], phi_tel[q_copy], phi_null_tel[q_copy], lvl,p,q_copy+1);
+                        f_prolongate_phi(phi_tel_f[q_copy], phi_tel[q_copy], phi_null_tel[q_copy], lvl,p,q_copy+1);  }
+                    
                     // Compute a_copy 
-                    a_copy[q_copy]=Complex(1.0/n_copies,0.0); // Regular average
-                    }
-                    f_min_res(a_copy, phi_tel_f, D[lvl-1], r[lvl-1], n_copies, lvl-1, p);
+                    // for(int q_copy=0; q_copy<n_copies; q_copy++) a_copy[q_copy]=Complex(1.0/n_copies,0.0); // Regular average
+                    f_min_res(a_copy, phi_tel_f, D[lvl-1], r[lvl-1], n_copies, lvl-1, p);   // Min res
                     cout<<endl;
                     for(int i=0; i<4; i++) {cout<<"i="<<i<<"  "<<a_copy[i]<<"\t";}
                     // cout<<endl;
                     
+                    // for(int i=0; i<n_copies; i++) a_copy[i]=4.0;
+                    // cout<<endl;
+                    // for(int i=0; i<4; i++) {cout<<"i="<<i<<"  "<<a_copy[i]<<"\t";}
                     // Scale each copy with weight
                     f_scale_phi(phi[lvl-1],phi_tel_f,a_copy,n_copies,p.size[lvl-1],p.n_dof[lvl-1]);
                 }

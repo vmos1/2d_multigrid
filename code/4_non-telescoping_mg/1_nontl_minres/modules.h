@@ -262,27 +262,36 @@ void f_min_res(Complex *a_copy, VArr1D *phi_tel, MArr2D D, VArr1D r, int num_cop
     Eigen::Matrix<Complex, Eigen::Dynamic, 1> src(num_copies); // the RHS in A X = src
     Eigen::Matrix<Complex, Eigen::Dynamic, 1>  X(num_copies); // the solution X
     
-    for(int q1=0; q1<num_copies; q1++) X(q1)=Complex(1.0/num_copies,0.0);
-    
+    int q1,q2;
     int L,x,y,d1,d2;
+    
+    for(q1=0; q1<num_copies; q1++) {
+        X(q1)=Complex(1.0/num_copies,0.0);
+        src(q1)=Complex(0.0,0.0);
+        for(q2=0; q2<num_copies; q2++){
+            A(q1,q2)=Complex(0.0,0.0);
+        }}
+    
     L=p.size[level];
     
     for(int q1=0; q1<num_copies; q1++)
         for(int q2=0; q2<num_copies; q2++){
             // f_apply_D(v_out,v_in, D, level,p)    
-            for (x=0; x<L; x++)
-                for(y=0; y<L; y++){
-                    A(q1,q2)+= (1.0)* 
-                                ( (phi_tel[q1](x+y*L).adjoint()*D(x+y*L,1)*phi_tel[q2]((x+1)%L+y*L))(0,0)
-                                + (phi_tel[q1](x+y*L).adjoint()*D(x+y*L,2)*phi_tel[q2]((x-1+L)%L+y*L))(0,0)
-                                + (phi_tel[q1](x+y*L).adjoint()*D(x+y*L,3)*phi_tel[q2](x+((y+1)%L)*L))(0,0)
-                                + (phi_tel[q1](x+y*L).adjoint()*D(x+y*L,4)*phi_tel[q2](x+((y-1+L)%L)*L))(0,0)
-                                + (phi_tel[q1](x+y*L).adjoint()*D(x+y*L,0)*phi_tel[q2](x+y*L))(0,0)  );
-                    
-                    src(q1)=phi_tel[q1](x+y*L).dot(r(x+y*L));
-                    // Note: .dot() means complex dot product c^dagger c 
-                    }
-        }
+            for (x=0; x<L; x++) for(y=0; y<L; y++){
+                A(q1,q2)+= (1.0)* 
+                            ( (phi_tel[q1](x+y*L).adjoint()*D(x+y*L,1)*phi_tel[q2]((x+1)%L+y*L))(0,0)
+                            + (phi_tel[q1](x+y*L).adjoint()*D(x+y*L,2)*phi_tel[q2]((x-1+L)%L+y*L))(0,0)
+                            + (phi_tel[q1](x+y*L).adjoint()*D(x+y*L,3)*phi_tel[q2](x+((y+1)%L)*L))(0,0)
+                            + (phi_tel[q1](x+y*L).adjoint()*D(x+y*L,4)*phi_tel[q2](x+((y-1+L)%L)*L))(0,0)
+                            + (phi_tel[q1](x+y*L).adjoint()*D(x+y*L,0)*phi_tel[q2](x+y*L))(0,0)  );
+
+                    // src(q1)=phi_tel[q1](x+y*L).dot(r(x+y*L));
+            }}
+    for(int q1=0; q1<num_copies; q1++)
+        for (x=0; x<L; x++) for(y=0; y<L; y++){
+            src(q1)+=phi_tel[q1](x+y*L).dot(r(x+y*L));
+            // Note: .dot() means complex dot product c^dagger c 
+        }        
 //     // Solve the 4x4 or smaller matrix A x = b
     // cout<<A<<endl ;
     X = A.colPivHouseholderQr().solve(src);
@@ -293,9 +302,10 @@ void f_min_res(Complex *a_copy, VArr1D *phi_tel, MArr2D D, VArr1D r, int num_cop
 void f_scale_phi(VArr1D phi, VArr1D* phi_tel_f, Complex *a_copy, int num_copies, int size, int nc){
     // Scale each copy and add to phi at next-to-lowest level
     
-    for(int q_copy=0; q_copy<num_copies; q_copy++)
-        for (int j = 0; j < size*size; j++) for(int d1=0;d1<nc;d1++) { 
+    for (int j = 0; j < size*size; j++) for(int d1=0;d1<nc;d1++) { 
+        for(int q_copy=0; q_copy<num_copies; q_copy++){
             phi(j)(d1)+=a_copy[q_copy]*phi_tel_f[q_copy](j)(d1);
-            phi_tel_f[q_copy](j)(d1)=0.0;// Need to manually reset phi_tel_f to zero
+            phi_tel_f[q_copy](j)(d1)=0.0;// Need to manually reset phi_tel_f to zero 
         }
     }
+}

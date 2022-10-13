@@ -1,5 +1,4 @@
 #pragma once
-
 void f_get_base_site(site &base, int quad, int xc, int yc, int Lf, params p){
     // Select base.x and base.y based on quadrant
     if      (quad==1) {base.x=p.block_x * xc;               base.y=p.block_y * yc; }
