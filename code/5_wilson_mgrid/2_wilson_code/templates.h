@@ -7,17 +7,40 @@ typedef struct{
     int L;
     int nlevels;
     double m; //mass
+    int n_color; // number of color dims (=1)
+    int spinor_dim; // dimensions in spinor space (=2 )
     int size[20]; // Lattice size 
     int n_dof[20]; // Degrees of freedom per site
     int n_dof_scale; // Factor of increase in dof per site with level
-    int block_x[20],block_y[20]; // Block sizes for each level
-    int blk_x,blk_y; // Default block sizes for all levels
+    int block_x,block_y;
     double scale[20]; // scale factor 
     double a[20]; // Lattice spacing 
-    
 } params ;
 
 /*  ### Define 3D,2D and 1D array templates ## */ 
+// template<typename T>
+// struct Array4D {
+//     std::shared_ptr<T> ptr;
+//     int N0, N1, N2, N3, size;
+
+//     Array4D() = default;
+//     Array4D(int N0_, int N1_, int N2_, int N3_)
+//      : N0(N0_) ,N1(N1_), N2(N2_),N3(N3_) size(N0_*N1_*N2_*N3_) {
+//         ptr = std::shared_ptr<T>(new T[size], [](T const * p) { delete[] p; });
+//         }
+//     Array4D(const Array4D&) = default;
+//     Array4D(Array4D&&) = default;
+//     Array4D& operator=(const Array4D&) = default;
+//     Array4D& operator=(Array4D&&) = default;
+
+//     T& operator()(const int& n0, const int& n1, const int& n2, const int& n3) 
+//     {
+//         return ptr.get()[n0 + N0 * n1 + N0 * N1 * n2 + N0 * N1 * N2 * n3];
+//     }
+// };
+
+
+
 template<typename T>
 struct Array3D {
     std::shared_ptr<T> ptr;

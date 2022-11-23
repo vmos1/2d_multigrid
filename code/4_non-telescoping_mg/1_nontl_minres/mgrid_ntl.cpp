@@ -136,7 +136,7 @@ int main (int argc, char *argv[])
     
     // Read heat-bath gauge field
     char fname[100];
-    double beta=128.0;
+    double beta=32.0;
     sprintf(fname,"gauge_config_files/phase_%d_b%0.1f.dat",p.size[0],beta); // phase_{L}_b{beta}.dat
     f_read_gaugeU_heatbath(fname,U, p);   // Read gauge field config from file
     f_plaquette(U,p);

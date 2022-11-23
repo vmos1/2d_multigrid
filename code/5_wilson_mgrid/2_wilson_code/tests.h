@@ -74,13 +74,13 @@ void f_test2_D(VArr1D vec, MArr2D Dc, MArr2D Df, MArr1D phi_null,int level, para
     f_prolongation(vec_f1,vec,phi_null,level+1, p, quad);
     
     // Step 2: v_f2 = D_f . v_f1
-    f_apply_D(vec_f2,vec_f1,Df,level,p, quad);
+    f_apply_D(vec_f2,vec_f1,Df,level,p);
 
     // Step 3: v_c1 = P v_f2 
     f_restriction(vec_c1, vec_f2, phi_null, level, p, quad);
     
     // Step 4: v_c2=D_c vec
-    f_apply_D(vec_c2,vec,Dc,level+1,p, quad);
+    f_apply_D(vec_c2,vec,Dc,level+1,p);
    
     // Check if they're equal
     for(x=0;x<Lc; x++) for(y=0; y<Lc; y++) for(d1=0; d1<nc; d1++) {
@@ -91,7 +91,7 @@ void f_test2_D(VArr1D vec, MArr2D Dc, MArr2D Df, MArr1D phi_null,int level, para
     }
 
 void f_test3_hermiticity(MArr2D D, int level, params p){
-    // Test if all D's are Hermitian
+    // Test if all D's are Hermitian. For Wilson, it's gamma_5 hermitian
     // D(x,x+mu) = D^*(x+u,x) 
     Complex a1,a2,a3,a4,a5,a6; 
     int l,n,d1,d2;
@@ -155,7 +155,7 @@ void f_test4_hermiticity_full(VArr1D vec, MArr2D D,int level, params p, int quad
     
     printf("Test4\t");
     // Step 1: v_1=D_f vec
-    f_apply_D(vec_f1,vec,D,level,p, quad);
+    f_apply_D(vec_f1,vec,D,level,p);
     
     // Step 2: vec^dagger . v_1 = vec^dagger . D . vec
     for (x=0; x<Lf; x++){
