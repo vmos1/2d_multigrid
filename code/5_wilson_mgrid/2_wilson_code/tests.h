@@ -101,21 +101,30 @@ void f_test3_hermiticity(MArr2D D, int level, params p){
     n=p.n_dof[level];
     printf("Test3\t");
     
+    ColorMatrix gamma5(n,n); 
+    for (d1=0; d1<n; d1++) for (d2=0; d2<n; d2++) {
+        if (d1==d2){ // Diagonal entries are 1 or -1
+            if (d1<n/2)  gamma5(d1,d2)=Complex(1.0,0.0);
+            else         gamma5(d1,d2)=Complex(-1.0,0.0);
+            }
+        else  gamma5(d1,d2)=Complex(0.0,0.0);
+    }
+    
     ColorMatrix m0(n,n), m1(n,n), m2(n,n), m3(n,n), m4(n,n);
     // printf("l %d, n %d\n",l,n);
     
     for(int x=0;x<l; x++) for(int y=0; y<l; y++) { 
-        m1=D(x+l*y                ,1);
-        m2=D((x+1)%l+l*y    ,2).adjoint();
-        m3=D(x+l*y                ,3);
-        m4=D(x+(((y+1)%l)*l),4).adjoint();
-        m0=D(x+l*y                ,0);
+        m1=       D(x+l*y          ,1);
+        m2=gamma5*D((x+1)%l+l*y    ,2).adjoint()*gamma5;
+        m3=       D(x+l*y          ,3);
+        m4=gamma5*D(x+(((y+1)%l)*l),4).adjoint()*gamma5;
+        m0=       D(x+l*y          ,0);
 
         for (d1=0; d1< n; d1++) for(d2=0;d2<n;d2++){
             a1=m1(d1,d2);a2=m2(d1,d2);
             a3=m3(d1,d2);a4=m4(d1,d2);
             a5=m0(d1,d2);
-            a6=m0.adjoint()(d1,d2);
+            a6=(gamma5*m0.adjoint()*gamma5)(d1,d2);
             
             if ((fabs(real(a1)-real(a2))>Epsilon) | (fabs(imag(a1)-imag(a2))>Epsilon)){
                 printf("%d,%d-> %d,%d\t",x,y,(x+1)%l,y);
@@ -138,11 +147,35 @@ void f_test4_hermiticity_full(VArr1D vec, MArr2D D,int level, params p, int quad
     // Test if all D's are Hermitian i.e. vec^dagger . D . vec = 0 
     // < v_c | D_c | v_c > = real 
     
-    int Lf,x,y,nf,d1;
+    int Lf,x,y,nf,d1,d2;
     double Epsilon=1.0e-12;
     
     Lf=p.size[level];
     nf=p.n_dof[level];
+    
+    // Define the gamma5 matrix
+    ColorMatrix gamma5(nf,nf); 
+    for (d1=0; d1<nf; d1++) for (d2=0; d2<nf; d2++) {
+        if (d1==d2){ // Diagonal entries are 1 or -1
+            if (d1<nf/2)
+                gamma5(d1,d2)=Complex(1.0,0.0);
+            else 
+                gamma5(d1,d2)=Complex(-1.0,0.0);
+                }
+        else  gamma5(d1,d2)=Complex(0.0,0.0);
+    }
+    
+    // Define matrix D_prime to store D.gamma_5
+    MArr2D D_prime(Lf*Lf,5); 
+    for (int j = 0; j < Lf*Lf ; j++){
+        for (int k=0; k<5; k++){
+            D_prime(j, k) = ColorMatrix(nf,nf);
+            // Initialize
+            // for(int d1=0;d1<nf;d1++){
+                // for(int d2=0;d2<nf;d2++)
+                    D_prime(j,k)=D(j,k)*gamma5;
+            }}
+    
     
     VArr1D vec_f1(Lf*Lf), vec_f2(Lf*Lf);
     for(int i=0; i< Lf*Lf; i++) {
@@ -155,7 +188,7 @@ void f_test4_hermiticity_full(VArr1D vec, MArr2D D,int level, params p, int quad
     
     printf("Test4\t");
     // Step 1: v_1=D_f vec
-    f_apply_D(vec_f1,vec,D,level,p);
+    f_apply_D(vec_f1,vec,D_prime,level,p);
     
     // Step 2: vec^dagger . v_1 = vec^dagger . D . vec
     for (x=0; x<Lf; x++){
