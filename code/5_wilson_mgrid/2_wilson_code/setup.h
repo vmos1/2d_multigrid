@@ -333,7 +333,8 @@ void f_near_null(MArr1D phi_null, MArr2D D, int level, int quad, int num_iters, 
     if (num==0) num=1; // num should be at least 1
     for(int x=0;x<L; x++) for(int y=0; y<L; y++) for(d2=0; d2 < nf; d2++) r_zero(x+y*L)(d2)=0.0;  
         // Relaxation with zero source
-        // for(d1=0; d1< nc;t d1++){
+        
+        // for(d1=0; d1< nc; d1++){
         for(d1=0; d1< nc/2; d1++){
             // Generate near null vector set for each n_dof of coarse level
             // Copy phi_null to a vector
@@ -351,16 +352,18 @@ void f_near_null(MArr1D phi_null, MArr2D D, int level, int quad, int num_iters, 
             // f_block_norm(phi_temp,level,quad, p);
             
             // Conjugate phi_null. This is to ensure gauge invariance. By storing as an nc x nf matrix, you are already transposing it. Now, also need to conjugate it.
-            //for(int x=0; x<L; x++) for(int y=0; y<L; y++) phi_null(x+y*L).row(d1)=phi_temp(x+y*L).conjugate();      // Assign near-null vector to phi_null
+            // for(int x=0; x<L; x++) for(int y=0; y<L; y++) phi_null(x+y*L).row(d1)=phi_temp(x+y*L).conjugate();      // Assign near-null vector to phi_null
+            
             for(int x=0; x<L; x++) for(int y=0; y<L; y++) {// Assign near-null vector to phi_null
-                if ((x+y)%2==1)
-                    phi_null(x+y*L).row(2*d1)  =phi_temp(x+y*L).conjugate(); 
-                else
-                    phi_null(x+y*L).row(2*d1+1)=phi_temp(x+y*L).conjugate();      
-            }
+                for(int d2=0; d2<nf; d2++) {
+                    if (d2<nf/2){ // 1+gamma5 
+                        phi_null(x+y*L).row(d1)(d2)     =conj(phi_temp(x+y*L)(d2)); 
+                        phi_null(x+y*L).row(nc/2+d1)(d2)=Complex(0,0); }
+                    else {         // 1-gamma5
+                        phi_null(x+y*L).row(nc/2+d1)(d2)=conj(phi_temp(x+y*L)(d2)); 
+                        phi_null(x+y*L).row(d1)(d2)     =Complex(0,0); }
+            }}
         }
-    // printf("Check null vectors are not 0\t");
-    // f_check_null_norm(phi_null,level,quad,p,1);  
 }
 
 void f_norm_nn(MArr1D phi_null, int level, int quad, params p){
