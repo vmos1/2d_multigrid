@@ -533,3 +533,72 @@ void f_compute_near_null(MArr2D * D, MArr2D * D_tel, MArr1D * phi_null, MArr1D *
     }
 }
 
+
+void f_MG_simple(MArr2D * D, MArr1D * phi_null, VArr1D *phi, VArr1D *r, params p){
+    // Perform regular Multigrid or pure relaxation
+    int lvl;
+    
+    if(p.nlevels > 0){
+    // Go down: fine -> coarse
+        for(lvl = 0; lvl < p.nlevels; lvl++){
+            relax(D[lvl], phi[lvl], r[lvl], lvl, p.num_iters, p, p.gs_flag); // Relaxation
+            //Project to coarse lattice 
+            f_restriction_res(r[lvl+1], r[lvl], phi[lvl], D[lvl], phi_null[lvl], lvl, p, p.quad);  }
+        // come up: coarse -> fine
+        for(lvl = p.nlevels; lvl >= 0; lvl--){
+            relax(D[lvl], phi[lvl], r[lvl], lvl, p.num_iters, p, p.gs_flag); // Relaxation
+            // Prolongate to finer lattice
+            if(lvl>0) f_prolongate_phi(phi[lvl-1], phi[lvl], phi_null[lvl-1], lvl, p, p.quad);   }
+    }
+    // No Multi-grid, just Relaxation
+    else  relax(D[0], phi[0], r[0], 0, p.num_iters, p, p.gs_flag);
+}
+
+void f_MG_ntl(MArr2D * D, MArr2D * D_tel, MArr1D * phi_null, MArr1D * phi_null_tel, VArr1D * phi, VArr1D * phi_tel, VArr1D * phi_tel_f, VArr1D * r, VArr1D * r_tel, VArr1D * r_tel_f, params p){
+    
+    int lvl;
+    Complex a_copy[4];
+    for(int i = 0; i < 4; i++)  a_copy[i]=Complex(0.0,0.0);
+
+    int min_res_flag=1; // min_res_flag=0 does regular average
+    
+    if(p.nlevels > 0){
+        // Go down: fine -> coarse
+        for(lvl = 0; lvl < p.nlevels; lvl++){
+            relax(D[lvl], phi[lvl], r[lvl], lvl, p.num_iters, p, p.gs_flag); // Relaxation
+            //Project to coarse lattice 
+            
+            if (lvl != p.nlevels-1){
+                f_restriction_res(r[lvl+1], r[lvl], phi[lvl], D[lvl], phi_null[lvl], lvl, p, p.quad); }
+            else {  // non-telescoping only for going to the lowest level
+                for(int q_copy = 0; q_copy < p.n_copies; q_copy++){ // Project 4 independent ways
+                    f_restriction_res(r_tel[q_copy], r[lvl], phi[lvl], D[lvl], phi_null_tel[q_copy], lvl, p, q_copy+1); }}
+        }
+        
+    // come up: coarse -> fine
+    for(lvl = p.nlevels; lvl >= 0; lvl--){
+        if(lvl == p.nlevels){// non-telescoping only for coming up from the lowest level
+            for(int q_copy = 0; q_copy < p.n_copies; q_copy++){ // Project 4 independent ways
+                relax(D_tel[q_copy], phi_tel[q_copy], r_tel[q_copy], lvl, p.num_iters,p,p.gs_flag); // Relaxation
+                f_prolongate_phi(phi_tel_f[q_copy], phi_tel[q_copy], phi_null_tel[q_copy], lvl,p,q_copy+1);  }
+
+            // Compute a_copy 
+            if (min_res_flag==1) 
+                f_min_res(a_copy, phi_tel_f, D[lvl-1], r[lvl-1], p.n_copies, lvl-1, p);   // Min res
+            else 
+                for(int q_copy = 0; q_copy < p.n_copies; q_copy++) a_copy[q_copy] = Complex(1.0/p.n_copies,0.0); // Regular average
+            cout<<endl;
+            for(int i = 0; i < 4; i++) {cout<<"i="<<i<<"  "<<a_copy[i]<<"\t";}
+            
+            // Scale each copy with weight
+            f_scale_phi(phi[lvl-1], phi_tel_f, a_copy, p.n_copies, p.size[lvl-1], p.n_dof[lvl-1]);
+        }
+        else {
+            relax(D[lvl], phi[lvl], r[lvl], lvl, p.num_iters, p, p.gs_flag); // Relaxation
+            if(lvl>0) f_prolongate_phi(phi[lvl-1], phi[lvl], phi_null[lvl-1], lvl, p, p.quad);
+            }
+        }
+    }
+    // No Multi-grid, just Relaxation
+    else  relax(D[0],phi[0],r[0], 0, p.num_iters,p,p.gs_flag);
+}
