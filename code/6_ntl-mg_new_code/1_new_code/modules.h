@@ -35,6 +35,7 @@ params f_init_global_params(char *argv[],params p){
     p.gs_flag=1; // Gauss-seidel = 1, Jacobi = 0
     p.total_copies=4;
     p.quad=1;    // quad 1,2,3 or 4
+    p.res_threshold=1.0e-13;
     
     // file pointers to save MG output
     p.pfile1 = fopen ("results_gen_scaling.txt","a"); 
@@ -44,13 +45,14 @@ params f_init_global_params(char *argv[],params p){
     int max_levels=ceil(log2(p.L)/log2(p.block_x)) ; // L = 8, block=2 -> max_levels=3 
     printf("Max levels for lattice %d with block size %d is %d\n",p.L,p.block_x,max_levels);
     
-    
-        if (p.nlevels>max_levels){
+    if (p.nlevels>max_levels){
         printf(" Error. Too many levels %d. Can only have %d levels for block size %d for lattice of size  %d\n",p.nlevels,max_levels,p.block_x,p.L); // Need to change for Lx != Ly
-        exit(1);
+    exit(1);
     }
     
     printf("V cycle with %d levels for lattice of size %d. Max levels %d\n",p.nlevels,p.L,max_levels);
+    printf("\nUsing quadrant %d\n",p.quad);
+    printf("Telescoping flag is %d\n",p.t_flag);
     
     // Initializing values at different levels
     for(int level = 1; level < p.nlevels+1; level++){
@@ -461,28 +463,53 @@ void f_min_res(Complex *a_copy, VArr1D *phi_tel, MArr2D D, VArr1D r, int num_cop
     
     L=p.size[level];
     
-    for(int q1=0; q1<num_copies; q1++)
+    // Temp vector for storing matrix product
+    VArr1D phi_temp1[4], phi_temp2[4];
+    int j_size=p.size[level];
+    int j_ndof=p.n_dof[level];
+    
+    for (int q_copy = 0; q_copy < 4; q_copy++){
+        phi_temp1[q_copy]=VArr1D(j_size*j_size);
+        phi_temp2[q_copy]=VArr1D(j_size*j_size);
+        for (int j = 0; j < j_size*j_size ; j++){
+            phi_temp1[q_copy](j) = ColorVector(j_ndof);
+            phi_temp2[q_copy](j) = ColorVector(j_ndof);
+            for(int d1 = 0; d1 < j_ndof; d1++) {
+                phi_temp1[q_copy](j)(d1) = 0.0; 
+                phi_temp2[q_copy](j)(d1) = 0.0; }
+        }}
+    
+    // Compute x_i^dagger . D . x_j  ,where i,j represent copy numbers
+    
+    for(int q1=0; q1<num_copies; q1++){ // Compute D . x_j 
+        f_apply_D(phi_temp1[q1],phi_tel[q1],D,level,p);
+        }        
+    
+    for(int q1=0; q1<num_copies; q1++) // Compute x_i^dagger . x_temp_i
         for(int q2=0; q2<num_copies; q2++){
-            // f_apply_D(v_out,v_in, D, level,p)    
             for (x=0; x<L; x++) for(y=0; y<L; y++){
-                A(q1,q2)+= (1.0)* 
-                            ( (phi_tel[q1](x+y*L).adjoint()*D(x+y*L,1)*phi_tel[q2]((x+1)%L+y*L))(0,0)
-                            + (phi_tel[q1](x+y*L).adjoint()*D(x+y*L,2)*phi_tel[q2]((x-1+L)%L+y*L))(0,0)
-                            + (phi_tel[q1](x+y*L).adjoint()*D(x+y*L,3)*phi_tel[q2](x+((y+1)%L)*L))(0,0)
-                            + (phi_tel[q1](x+y*L).adjoint()*D(x+y*L,4)*phi_tel[q2](x+((y-1+L)%L)*L))(0,0)
-                            + (phi_tel[q1](x+y*L).adjoint()*D(x+y*L,0)*phi_tel[q2](x+y*L))(0,0)  );
-
-                    // src(q1)=phi_tel[q1](x+y*L).dot(r(x+y*L));
-            }}
+                A(q1,q2)+= (1.0)* ( (phi_tel[q1](x+y*L)).adjoint()*phi_temp1[q2](x+y*L))(0,0);
+            } }
+    
+    // for(int q1=0; q1<num_copies; q1++)
+    //     for(int q2=0; q2<num_copies; q2++){
+    //         // f_apply_D(v_out,v_in, D, level,p)    
+    //         for (x=0; x<L; x++) for(y=0; y<L; y++){
+    //             A(q1,q2)+= (1.0)* 
+    //                         ( (phi_tel[q1](x+y*L).adjoint()*D(x+y*L,1)*phi_tel[q2]((x+1)%L+y*L))(0,0)
+    //                         + (phi_tel[q1](x+y*L).adjoint()*D(x+y*L,2)*phi_tel[q2]((x-1+L)%L+y*L))(0,0)
+    //                         + (phi_tel[q1](x+y*L).adjoint()*D(x+y*L,3)*phi_tel[q2](x+((y+1)%L)*L))(0,0)
+    //                         + (phi_tel[q1](x+y*L).adjoint()*D(x+y*L,4)*phi_tel[q2](x+((y-1+L)%L)*L))(0,0)
+    //                         + (phi_tel[q1](x+y*L).adjoint()*D(x+y*L,0)*phi_tel[q2](x+y*L))(0,0)  );
+    //         }}
+    
     for(int q1=0; q1<num_copies; q1++)
         for (x=0; x<L; x++) for(y=0; y<L; y++){
             src(q1)+=phi_tel[q1](x+y*L).dot(r(x+y*L));
             // Note: .dot() means complex dot product c^dagger c 
-        }        
+        }
 //     // Solve the 4x4 or smaller matrix A x = b
-    // cout<<A<<endl ;
-    X = A.colPivHouseholderQr().solve(src);
-    // X = A.().solve(src);
+    X = A.colPivHouseholderQr().solve(src);    // X = A.().solve(src);
     for(int i=0; i<num_copies; i++) a_copy[i]=X(i); 
 }
 
@@ -601,4 +628,37 @@ void f_MG_ntl(MArr2D * D, MArr2D * D_tel, MArr1D * phi_null, MArr1D * phi_null_t
     }
     // No Multi-grid, just Relaxation
     else  relax(D[0],phi[0],r[0], 0, p.num_iters,p,p.gs_flag);
+}
+
+void f_perform_MG(MArr2D * D, MArr2D * D_tel, MArr1D * phi_null, MArr1D * phi_null_tel, VArr1D * phi, VArr1D * phi_tel, VArr1D * phi_tel_f, VArr1D * r, VArr1D * r_tel, VArr1D * r_tel_f, params p, int max_iters){
+    // Implement entire Multigrid algorithm : either regular or NTL
+    
+    double resmag;
+    for(int iter=0; iter < max_iters; iter++){
+        
+        if(iter%1 == 0) {
+            printf("\nAt iteration %d, the mag residue is %g",iter,resmag);   
+            f_write_op(phi[0], r[0], iter, p.pfile2, p);      
+            f_write_residue(D[0], phi[0], r[0],0, iter, p.pfile3, p);
+         }     
+        
+        // Do Multigrid 
+        if (p.t_flag == 1) // Non-telescoping Multigrid
+            f_MG_ntl(D, D_tel, phi_null, phi_null_tel, phi, phi_tel, phi_tel_f, r, r_tel, r_tel_f, p);
+        else // Regular Multigrid
+            f_MG_simple(D, phi_null, phi, r, p);
+        
+        resmag=f_get_residue_mag(D[0],phi[0],r[0],0,p);
+        if (resmag < p.res_threshold) {  // iter+1 everywhere below since iteration is complete
+            printf("\nLoop breaks at iteration %d with residue %e < %e",iter+1,resmag,p.res_threshold); 
+            printf("\nL %d\tm %f\tnlevels %d\tnum_per_level %d\tAns %d\n",p.L,p.m,p.nlevels,p.num_iters,iter+1);
+            fprintf(p.pfile1,"%d\t%d\t%f\t%d\t%d\t%d\t%d\t%d\n",p.L,p.num_iters,p.m,p.block_x,p.block_y,p.n_dof_scale,p.nlevels,iter+1);
+            f_write_op(phi[0],r[0], iter+1, p.pfile2, p); 
+            f_write_residue(D[0],phi[0],r[0],0, iter+1, p.pfile3, p);
+            break;}
+        
+        else if (resmag > 1e6) {
+            printf("\nDiverging. Residue %g at iteration %d",resmag,iter+1);
+            break;}    
+    }// end of iterations
 }

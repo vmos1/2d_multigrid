@@ -21,6 +21,7 @@ typedef struct{
     int block_x,block_y;
     double scale[20]; // scale factor 
     double a[20]; // Lattice spacing 
+    double res_threshold;
     
     FILE * pfile1, * pfile2, * pfile3;     // file pointers to save MG output
     
