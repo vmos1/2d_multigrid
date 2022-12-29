@@ -133,3 +133,11 @@ void f_block_norm(VArr1D vec, int level, int quad, params p){
         }
     }
 }
+
+void f_write_NTL_weights(Complex *a_copy, int iter, FILE* pfile, params p){
+    // Writing the NTL weights
+    fprintf(pfile,"%d, ",iter);
+    for(int q_copy = 0; q_copy < p.total_copies; q_copy++){
+            fprintf(pfile,"%.4e+i%.4e, ",real(a_copy[q_copy]),imag(a_copy[q_copy])); }
+    fprintf(pfile,"\n"); 
+}

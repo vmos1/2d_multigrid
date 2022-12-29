@@ -313,62 +313,60 @@ void f_scale_phi(Level L1, Level NTL[][4], Complex *a_copy, int num_copies, int 
     }
 }
 
-void f_MG_ntl(Level LVL[], Level NTL[][4], params p){
+void f_MG_ntl(Level LVL[], Level NTL[][4], params p,int iter){
     
     Complex a_copy[4];
     for(int i = 0; i < 4; i++)  a_copy[i]=Complex(0.0,0.0);
 
     int min_res_flag=1; // min_res_flag=0 does regular average
     
-    if( p.nlevels > 0){
-        // Go down: fine -> coarse
-        for(int lvl = 0; lvl < p.nlevels; lvl++){
-            
-            // Relaxation
-            LVL[lvl].f_relax(lvl, p.num_iters, p, p.gs_flag); 
-            
-            //Project to coarse lattice 
-            if (lvl != p.nlevels-1){
-                f_restriction_res(LVL[lvl+1].r, LVL[lvl], LVL[lvl],lvl, p, p.quad);  }
+    // Go down: fine -> coarse
+    for(int lvl = 0; lvl < p.nlevels; lvl++){
 
-            else {  // non-telescoping only for going to the lowest level
-                for(int q_copy = 0; q_copy < p.n_copies; q_copy++){ // Project 4 independent ways
-                    // f_restriction_res(r_tel[q_copy], r[lvl], phi[lvl], D[lvl], phi_null_tel[q_copy], lvl, p, q_copy+1); }}
-                    f_restriction_res(NTL[lvl][q_copy].r, LVL[lvl], NTL[lvl][q_copy], lvl, p, p.quad);  }}
-        }
-        
-    // come up: coarse -> fine
-    for(int lvl = p.nlevels; lvl >= 0; lvl--){
-        if( lvl == p.nlevels){// non-telescoping only for coming up from the lowest level
+        // Relaxation
+        LVL[lvl].f_relax(lvl, p.num_iters, p, p.gs_flag); 
+
+        //Project to coarse lattice 
+        if (lvl != p.nlevels-1){
+            f_restriction_res(LVL[lvl+1].r, LVL[lvl], LVL[lvl],lvl, p, p.quad);  }
+
+        else {  // non-telescoping only for going to the lowest level
             for(int q_copy = 0; q_copy < p.n_copies; q_copy++){ // Project 4 independent ways
-                NTL[lvl][q_copy].f_relax(lvl, p.num_iters,p,p.gs_flag); // Relaxation
-                // f_prolongate_phi(phi_tel_f[q_copy], phi_tel[q_copy], phi_null_tel[q_copy], lvl,p,q_copy+1);  }
-                f_prolongate_phi(NTL[lvl-1][q_copy].phi, NTL[lvl][q_copy].phi, NTL[lvl-1][q_copy], lvl, p, p.quad);   }
-            
-            // Compute a_copy 
-            if (min_res_flag==1) 
-                // f_min_res(a_copy, phi_tel_f, D[lvl-1], r[lvl-1], p.n_copies, lvl-1, p);   // Min res
-                f_min_res(a_copy, LVL, NTL, p.n_copies, lvl-1, p);   // Min res
-            else 
-                for(int q_copy = 0; q_copy < p.n_copies; q_copy++) a_copy[q_copy] = Complex(1.0/p.n_copies,0.0); // Regular average
-            
-            cout<<endl;
-            for(int i = 0; i < 4; i++) {cout<<"i="<<i<<"  "<<a_copy[i]<<"\t";}
-            
-            // Scale each copy with weight
-            f_scale_phi(LVL[lvl-1], NTL, a_copy, p.n_copies, p.size[lvl-1], p.n_dof[lvl-1], lvl-1);
-        }
-        else {            
-            // Relaxation            
-            LVL[lvl].f_relax(lvl, p.num_iters, p, p.gs_flag);
-            
-            // Prolongate to finer lattice
-            if(lvl>0) f_prolongate_phi(LVL[lvl-1].phi, LVL[lvl].phi, LVL[lvl-1], lvl, p, p.quad);   }
-        }
+                // f_restriction_res(r_tel[q_copy], r[lvl], phi[lvl], D[lvl], phi_null_tel[q_copy], lvl, p, q_copy+1); }}
+                f_restriction_res(NTL[lvl][q_copy].r, LVL[lvl], NTL[lvl][q_copy], lvl, p, p.quad);  }}
     }
-    // No Multi-grid, just Relaxation
-    else  
-        LVL[0].f_relax( 0, p.num_iters, p, p.gs_flag);
+
+// come up: coarse -> fine
+for(int lvl = p.nlevels; lvl >= 0; lvl--){
+    if( lvl == p.nlevels){// non-telescoping only for coming up from the lowest level
+        for(int q_copy = 0; q_copy < p.n_copies; q_copy++){ // Project 4 independent ways
+            NTL[lvl][q_copy].f_relax(lvl, p.num_iters,p,p.gs_flag); // Relaxation
+            // f_prolongate_phi(phi_tel_f[q_copy], phi_tel[q_copy], phi_null_tel[q_copy], lvl,p,q_copy+1);  }
+            f_prolongate_phi(NTL[lvl-1][q_copy].phi, NTL[lvl][q_copy].phi, NTL[lvl-1][q_copy], lvl, p, p.quad);   }
+
+        // Compute a_copy 
+        if (min_res_flag==1) 
+            // f_min_res(a_copy, phi_tel_f, D[lvl-1], r[lvl-1], p.n_copies, lvl-1, p);   // Min res
+            f_min_res(a_copy, LVL, NTL, p.n_copies, lvl-1, p);   // Min res
+        else 
+            for(int q_copy = 0; q_copy < p.n_copies; q_copy++) a_copy[q_copy] = Complex(1.0/p.n_copies,0.0); // Regular average
+
+        cout<<endl;
+        for(int i = 0; i < 4; i++) {cout<<"i="<<i<<"  "<<a_copy[i]<<"\t";}
+
+        // Scale each copy with weight
+        f_scale_phi(LVL[lvl-1], NTL, a_copy, p.n_copies, p.size[lvl-1], p.n_dof[lvl-1], lvl-1);
+    }
+    else {            
+        // Relaxation            
+        LVL[lvl].f_relax(lvl, p.num_iters, p, p.gs_flag);
+
+        // Prolongate to finer lattice
+        if(lvl>0) f_prolongate_phi(LVL[lvl-1].phi, LVL[lvl].phi, LVL[lvl-1], lvl, p, p.quad);   }
+    }
+    
+    f_write_NTL_weights(a_copy, iter, p.pfile3, p);
+    
 }
 
 
@@ -378,19 +376,18 @@ void f_perform_MG(Level LVL[], Level NTL[][4], params p, int max_iters){
     double resmag;
     for(int iter=0; iter < max_iters; iter++){
         
-        if(iter%1 == 0) {
+        if(iter%p.write_interval == 0) {
             printf("\nAt iteration %d, the mag residue is %g",iter,resmag);   
             LVL[0].f_write_op(     0, iter+1, p.pfile2, p); 
-            LVL[0].f_write_residue(0, iter+1, p.pfile3, p);
+            for (int lvl=0; lvl<p.nlevels+1; lvl++) 
+                LVL[lvl].f_write_residue(lvl, iter+1, p.pfile4[lvl], p); 
          }     
         
         // Do Multigrid 
-        if (p.t_flag == 1) // Non-telescoping Multigrid
-            // f_MG_ntl(D, D_tel, phi_null, phi_null_tel, phi, phi_tel, phi_tel_f, r, r_tel, r_tel_f, p);
-            f_MG_ntl(LVL, NTL, p);
+        if ((p.t_flag == 1) && (p.nlevels>0)) // Non-telescoping Multigrid
+            f_MG_ntl(LVL, NTL, p, iter);
             
         else // Regular Multigrid
-            // f_MG_simple(D, phi_null, phi, r, p);
             f_MG_simple(LVL, p);
         
         resmag=LVL[0].f_get_residue_mag(0,p);
@@ -400,7 +397,7 @@ void f_perform_MG(Level LVL[], Level NTL[][4], params p, int max_iters){
             printf("\nL %d\tm %f\tnlevels %d\tnum_per_level %d\tAns %d\n",p.L,p.m,p.nlevels,p.num_iters,iter+1);
             fprintf(p.pfile1,"%d\t%d\t%f\t%d\t%d\t%d\t%d\t%d\n",p.L,p.num_iters,p.m,p.block_x,p.block_y,p.n_dof_scale,p.nlevels,iter+1);
             LVL[0].f_write_op(     0, iter+1, p.pfile2, p); 
-            LVL[0].f_write_residue(0, iter+1, p.pfile3, p);
+            for (int lvl=0; lvl<p.nlevels+1; lvl++) LVL[lvl].f_write_residue(lvl, iter+1, p.pfile4[lvl], p);
             break;}
         
         else if (resmag > 1e6) {

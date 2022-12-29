@@ -12,6 +12,7 @@ class params {
         int quad;
         int gs_flag;
         int total_copies;
+        int write_interval;
 
         double m; //mass
         int size[20]; // Lattice size 
@@ -22,7 +23,7 @@ class params {
         double a[20]; // Lattice spacing 
         double res_threshold;
 
-        FILE * pfile1, * pfile2, * pfile3;     // file pointers to save MG output
+        FILE * pfile1, * pfile2, * pfile3, * pfile4[20];     // file pointers to save MG output
         
         // Functions
         void f_init_global_params(char *argv[]);
@@ -59,12 +60,21 @@ void params::f_init_global_params(char *argv[]){
     total_copies = 4;
     quad         = 1;    // quad 1,2,3 or 4
     res_threshold= 1.0e-13;
+    write_interval=1; // Interval at which you write values to file
 
     // file pointers to save MG output
     pfile1 = fopen ("results_gen_scaling.txt","a"); 
     pfile2 = fopen ("results_phi.txt","w"); 
-    pfile3 = fopen ("results_residue.txt","w"); 
-
+    pfile3 = fopen ("results_NTL_weights.txt","w"); 
+   
+    // Initialize pointers for writing residue at different levels
+    char fname[100];
+    for (int lvl = 0; lvl < nlevels+1; lvl++){
+        snprintf(fname,100,"results_res_lvl-%d.txt",lvl); 
+        
+        pfile4[lvl] = fopen(fname,"w");
+    }
+    
     int max_levels=ceil(log2(L)/log2(block_x)) ; // L = 8, block=2 -> max_levels=3 
     printf("Max levels for lattice %d with block size %d is %d\n",L,block_x,max_levels);
 

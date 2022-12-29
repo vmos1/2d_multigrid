@@ -208,7 +208,7 @@ void Level::f_apply_D(VArr1D v_out, VArr1D v_in, int level, params p){
 }
 
 
-void Level::f_write_residue(int level, int iter, FILE* pfile3, params p){
+void Level::f_write_residue(int level, int iter, FILE* pfile, params p){
     // Writing the residue at a level
     int L;
     L=p.size[level];
@@ -220,26 +220,24 @@ void Level::f_write_residue(int level, int iter, FILE* pfile3, params p){
     f_residue(rtemp,level,p);
     
     // Write residue to file
-    fprintf(pfile3,"%d,",iter);
+    fprintf(pfile,"%d,",iter);
     
     for(int x = 0; x < L; x++)  for(int y = 0; y < L; y++){
         for(int d = 0; d < p.n_dof[level]; d++){
-            // fprintf(pfile3,"%f+i%f,",real(rtemp(x+L*y)(d)),imag(rtemp(x+L*y)(d))); }}
-            fprintf(pfile3,"%20.25e+i%20.25e,",real(rtemp(x+L*y)(d)),imag(rtemp(x+L*y)(d))); }}
-    fprintf(pfile3,"\n"); 
+            fprintf(pfile,"%20.25e+i%20.25e,",real(rtemp(x+L*y)(d)),imag(rtemp(x+L*y)(d))); }}
+    fprintf(pfile,"\n"); 
 }
 
-
-void Level::f_write_op(int level, int iter, FILE* pfile2, params p){
+void Level::f_write_op(int level, int iter, FILE* pfile, params p){
     // Writing the phi at at level
     int L; 
     L=p.size[level];
     
-    fprintf(pfile2,"%d,",iter);
+    fprintf(pfile,"%d,",iter);
     
     for(int x = 0; x < L; x++)  for(int y = 0; y < L; y++){
         for(int d = 0; d < p.n_dof[level]; d++){
             
-            fprintf(pfile2,"%20.25e+i%20.25e,",real(phi(x+L*y)(d)),imag(phi(x+L*y)(d))); }}
-    fprintf(pfile2,"\n");
+            fprintf(pfile,"%20.25e+i%20.25e,",real(phi(x+L*y)(d)),imag(phi(x+L*y)(d))); }}
+    fprintf(pfile,"\n");
 }
