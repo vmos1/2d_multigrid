@@ -1,2 +1,3 @@
 # 2d_multigrid
-Code to build Multigrid for 2d Schwinger Model
+Code to run Multigrid in 2D for Laplace and Wilson operators.
+Implementing a non-telescoping approch with minimal residual.
