@@ -160,7 +160,6 @@ void f_compute_near_null(Level LVL[], Level NTL[][4], params p, int quad){
         LVL[lvl].f_norm_nn(lvl, quad, p);
         LVL[lvl].f_ortho(  lvl, quad, p);
         LVL[lvl].f_ortho(  lvl, quad, p);
-        // LVL[lvl].f_ortho(  lvl, quad, p);
         LVL[lvl].f_check_ortho(lvl, quad, p); // Check orthogonality
         f_compute_coarse_matrix(LVL[lvl+1].D,LVL[lvl].D,LVL[lvl].phi_null, lvl, quad, p); // Compute D matrix for lower level
         }
@@ -172,7 +171,7 @@ void f_compute_near_null(Level LVL[], Level NTL[][4], params p, int quad){
     // Compute stuff for non-telescoping
     if (p.t_flag==1){ // For non-telescoping create 4 copies
         cout<<"near null for non-telescoping "<<endl;
-        for(int q_copy=0; q_copy<p.total_copies; q_copy++){
+        for(int q_copy=0; q_copy<p.n_copies; q_copy++){
             //copy phi_null[lowest] to phi_null_tel
             for (int j = 0; j < p.size[p.nlevels-1]*p.size[p.nlevels-1]; j++){
                 NTL[p.nlevels-1][q_copy].phi_null(j) = LVL[p.nlevels-1].phi_null(j);  }
