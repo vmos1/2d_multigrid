@@ -187,7 +187,8 @@ void f_compute_near_null(Level LVL[], Level NTL[][4], params p, int quad){
 
 void f_restriction_res(VArr1D res_c, Level L_residue, Level L_restrict, int level, params p, int quad){
     // Multigrid module that projects downward to coarser lattices
-    // L_res is the level at which to compute the residue. Could be different from the level of restriction
+    // L_residue is the level at which to compute the residue. LVL.D and LVL.phi are used
+    // L_restrict is the level at which restriction is done. LVL.phi_null is used
     int L,Lc;
     
     L =  p.size[level];
@@ -332,38 +333,37 @@ void f_MG_ntl(Level LVL[], Level NTL[][4], params p,int iter){
 
         else {  // non-telescoping only for going to the lowest level
             for(int q_copy = 0; q_copy < p.n_copies; q_copy++){ // Project 4 independent ways
-                // f_restriction_res(r_tel[q_copy], r[lvl], phi[lvl], D[lvl], phi_null_tel[q_copy], lvl, p, q_copy+1); }}
-                f_restriction_res(NTL[lvl][q_copy].r, LVL[lvl], NTL[lvl][q_copy], lvl, p, p.quad);  }}
+                f_restriction_res(NTL[lvl+1][q_copy].r, LVL[lvl], NTL[lvl][q_copy], lvl, p, q_copy+1);  }}
     }
 
-// come up: coarse -> fine
-for(int lvl = p.nlevels; lvl >= 0; lvl--){
-    if( lvl == p.nlevels){// non-telescoping only for coming up from the lowest level
-        for(int q_copy = 0; q_copy < p.n_copies; q_copy++){ // Project 4 independent ways
-            NTL[lvl][q_copy].f_relax(lvl, p.num_iters,p,p.gs_flag); // Relaxation
-            // f_prolongate_phi(phi_tel_f[q_copy], phi_tel[q_copy], phi_null_tel[q_copy], lvl,p,q_copy+1);  }
-            f_prolongate_phi(NTL[lvl-1][q_copy].phi, NTL[lvl][q_copy].phi, NTL[lvl-1][q_copy], lvl, p, p.quad);   }
+    // come up: coarse -> fine
+    for(int lvl = p.nlevels; lvl >= 0; lvl--){
+        if( lvl == p.nlevels){// non-telescoping only for coming up from the lowest level
+            for(int q_copy = 0; q_copy < p.n_copies; q_copy++){ // Project 4 independent ways
+                NTL[lvl][q_copy].f_relax(lvl, p.num_iters,p,p.gs_flag); // Relaxation
+                // f_prolongate_phi(phi_tel_f[q_copy], phi_tel[q_copy], phi_null_tel[q_copy], lvl,p,q_copy+1);  }
+                f_prolongate_phi(NTL[lvl-1][q_copy].phi, NTL[lvl][q_copy].phi, NTL[lvl-1][q_copy], lvl, p, q_copy+1);   }
 
-        // Compute a_copy 
-        if (min_res_flag==1) 
-            // f_min_res(a_copy, phi_tel_f, D[lvl-1], r[lvl-1], p.n_copies, lvl-1, p);   // Min res
-            f_min_res(a_copy, LVL, NTL, p.n_copies, lvl-1, p);   // Min res
-        else 
-            for(int q_copy = 0; q_copy < p.n_copies; q_copy++) a_copy[q_copy] = Complex(1.0/p.n_copies,0.0); // Regular average
+            // Compute a_copy 
+            if (min_res_flag==1) 
+                // f_min_res(a_copy, phi_tel_f, D[lvl-1], r[lvl-1], p.n_copies, lvl-1, p);   // Min res
+                f_min_res(a_copy, LVL, NTL, p.n_copies, lvl-1, p);   // Min res
+            else 
+                for(int q_copy = 0; q_copy < p.n_copies; q_copy++) a_copy[q_copy] = Complex(1.0/p.n_copies,0.0); // Regular average
 
-        cout<<endl;
-        for(int i = 0; i < 4; i++) {cout<<"i="<<i<<"  "<<a_copy[i]<<"\t";}
+            cout<<endl;
+            for(int i = 0; i < 4; i++) {cout<<"i="<<i<<"  "<<a_copy[i]<<"\t";}
 
-        // Scale each copy with weight
-        f_scale_phi(LVL[lvl-1], NTL, a_copy, p.n_copies, p.size[lvl-1], p.n_dof[lvl-1], lvl-1);
-    }
-    else {            
-        // Relaxation            
-        LVL[lvl].f_relax(lvl, p.num_iters, p, p.gs_flag);
+            // Scale each copy with weight
+            f_scale_phi(LVL[lvl-1], NTL, a_copy, p.n_copies, p.size[lvl-1], p.n_dof[lvl-1], lvl-1);
+        }
+        else {            
+            // Relaxation            
+            LVL[lvl].f_relax(lvl, p.num_iters, p, p.gs_flag);
 
-        // Prolongate to finer lattice
-        if(lvl>0) f_prolongate_phi(LVL[lvl-1].phi, LVL[lvl].phi, LVL[lvl-1], lvl, p, p.quad);   }
-    }
+            // Prolongate to finer lattice
+            if(lvl>0) f_prolongate_phi(LVL[lvl-1].phi, LVL[lvl].phi, LVL[lvl-1], lvl, p, p.quad);   }
+        }
     
     f_write_NTL_weights(a_copy, iter, p.pfile3, p);
     
