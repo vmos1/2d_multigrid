@@ -286,7 +286,7 @@ void f_write_residue_mag(double* resmag, int iter, FILE* pfile, params p){
 }
 
 // Module for non-telescoping
-void f_min_res(Complex *a_copy, VArr1D *phi_tel, MArr2D D, VArr1D r, int num_copies, int level, params p){
+void f_min_res(Complex *a_copy, VArr1D *phi_tel, MArr2D D, VArr1D r, VArr1D phi, int num_copies, int level, params p){
     
     Eigen::Matrix<Complex, Eigen::Dynamic, Eigen::Dynamic> A(num_copies,num_copies); // The min-res matrix (4x4)
     // Eigen::Matrix<Complex> A(4,4); // The min-res matrix (4x4)
@@ -297,22 +297,6 @@ void f_min_res(Complex *a_copy, VArr1D *phi_tel, MArr2D D, VArr1D r, int num_cop
     int q1,q2;
     int L,x,y,d1,d2;
     
-    // Temp vector for storing matrix product
-    VArr1D phi_temp1[4], phi_temp2[4];
-    int j_size=p.size[level];
-    int j_ndof=p.n_dof[level];
-    
-    for (int q_copy = 0; q_copy < 4; q_copy++){
-        phi_temp1[q_copy]=VArr1D(j_size*j_size);
-        phi_temp2[q_copy]=VArr1D(j_size*j_size);
-        for (int j = 0; j < j_size*j_size ; j++){
-            phi_temp1[q_copy](j) = ColorVector(j_ndof);
-            phi_temp2[q_copy](j) = ColorVector(j_ndof);
-            for(int d1 = 0; d1 < j_ndof; d1++) {
-                phi_temp1[q_copy](j)(d1) = 0.0; 
-                phi_temp2[q_copy](j)(d1) = 0.0; }
-        }}
-    
     for(q1=0; q1<num_copies; q1++) {
         X(q1)=Complex(1.0/num_copies,0.0);
         src(q1)=Complex(0.0,0.0);
@@ -322,47 +306,126 @@ void f_min_res(Complex *a_copy, VArr1D *phi_tel, MArr2D D, VArr1D r, int num_cop
     
     L=p.size[level];
     
-    for(int q1=0; q1<num_copies; q1++){
-        // for (x=0; x<L; x++) for(y=0; y<L; y++){
-            // phi_temp[q1](x+y*L)=D(x+y*L,0)*phi_tel[q1](x+y*L);}
+    // Temp vector for storing matrix product
+    VArr1D phi_temp1[4], phi_temp2[4], r_temp1;
+    int j_size=p.size[level];
+    int j_ndof=p.n_dof[level];
     
-        for (x=0; x<L; x++) for(y=0; y<L; y++){
-            phi_temp1[q1](x+y*L)= (1.0)*
-                            ( D(((x+1)%L+y*L)     ,2).adjoint() *phi_tel[q1]((x+1)%L+y*L)
-                            + D(((x-1+L)%L+y*L)   ,1).adjoint() *phi_tel[q1]((x-1+L)%L+y*L) 
-                            + D((x+((y+1)%L)*L)   ,4).adjoint() *phi_tel[q1](x+((y+1)%L)*L) 
-                            + D((x+((y-1+L)%L)*L) ,3).adjoint() *phi_tel[q1](x+((y-1+L)%L)*L) 
-                            + D(x+y*L             ,0).adjoint() *phi_tel[q1](x+y*L));         
+    r_temp1=VArr1D(j_size*j_size);
+     for (int j = 0; j < j_size*j_size ; j++){
+        r_temp1(j)   = ColorVector(j_ndof);
+        for(int d1 = 0; d1 < j_ndof; d1++) {
+            r_temp1(j)(d1)   = 0.0;  }}
+    
+    for (int q_copy = 0; q_copy < 4; q_copy++){
+        phi_temp1[q_copy]=VArr1D(j_size*j_size);
+        phi_temp2[q_copy]=VArr1D(j_size*j_size);
         
-
-        f_apply_D(phi_temp2[q1],phi_temp1[q1],D,level,p);
-        // f_apply_D(phi_temp[q1],phi_tel[q1],D,level,p); // Not correct. Need to transpose in position space.
-        }        }
-    
-    for(int q1=0; q1<num_copies; q1++)
-        for(int q2=0; q2<num_copies; q2++){
-            for (x=0; x<L; x++) for(y=0; y<L; y++){
-                A(q1,q2)+= (1.0)* ( (phi_tel[q1](x+y*L)).adjoint()*phi_temp1[q2](x+y*L))(0,0);
-            } }
-                
-    
-    // for(int q1=0; q1<num_copies; q1++)
-    //     for(int q2=0; q2<num_copies; q2++){
-    //         // f_apply_D(v_out,v_in, D, level,p)    
-    //         for (x=0; x<L; x++) for(y=0; y<L; y++){
-    //             // A(q1,q2)+= (1.0)* 
-    //             //             ( (phi_tel[q1](x+y*L).adjoint()*D(x+y*L,1)*phi_tel[q2]((x+1)%L+y*L))(0,0)
-    //             //             + (phi_tel[q1](x+y*L).adjoint()*D(x+y*L,2)*phi_tel[q2]((x-1+L)%L+y*L))(0,0)
-    //             //             + (phi_tel[q1](x+y*L).adjoint()*D(x+y*L,3)*phi_tel[q2](x+((y+1)%L)*L))(0,0)
-    //             //             + (phi_tel[q1](x+y*L).adjoint()*D(x+y*L,4)*phi_tel[q2](x+((y-1+L)%L)*L))(0,0)
-    //             //             + (phi_tel[q1](x+y*L).adjoint()*D(x+y*L,0)*phi_tel[q2](x+y*L))(0,0)  );
-    //         }}
+        for (int j = 0; j < j_size*j_size ; j++){
+            phi_temp1[q_copy](j) = ColorVector(j_ndof);
+            phi_temp2[q_copy](j) = ColorVector(j_ndof);
             
-    for(int q1=0; q1<num_copies; q1++)
+            for(int d1 = 0; d1 < j_ndof; d1++) {
+                phi_temp1[q_copy](j)(d1) = 0.0; 
+                phi_temp2[q_copy](j)(d1) = 0.0; }
+        }}
+    
+    int method;// One of two ways to implement min-res for Wilson operator
+    // method=1;
+    // method=2;
+    method=3;
+    
+//     // Method 1 : Using Hermiticity of A A^dagger
+    if (method==1) {
+        for(int q1=0; q1<num_copies; q1++){
+            // Apply A . x_i
+            f_apply_D(phi_temp1[q1],phi_tel[q1],D,level,p);
+            // Apply A^dagger to it
+            for (x=0; x<L; x++) for(y=0; y<L; y++){
+                phi_temp2[q1](x+y*L)= (1.0)*
+                                ( D(((x+1)%L+y*L)     ,2).adjoint() *phi_temp1[q1]((x+1)%L+y*L)
+                                + D(((x-1+L)%L+y*L)   ,1).adjoint() *phi_temp1[q1]((x-1+L)%L+y*L) 
+                                + D((x+((y+1)%L)*L)   ,4).adjoint() *phi_temp1[q1](x+((y+1)%L)*L) 
+                                + D((x+((y-1+L)%L)*L) ,3).adjoint() *phi_temp1[q1](x+((y-1+L)%L)*L) 
+                                + D(x+y*L             ,0).adjoint() *phi_temp1[q1](x+y*L));         
+            }
+        }
+        // Compute A^dagger r
         for (x=0; x<L; x++) for(y=0; y<L; y++){
-            src(q1)+=phi_tel[q1](x+y*L).dot(r(x+y*L));
-            // Note: .dot() means complex dot product c^dagger c 
-        }        
+            r_temp1(x+y*L)= (1.0)*
+                            ( D(((x+1)%L+y*L)     ,2).adjoint() *r((x+1)%L+y*L)
+                            + D(((x-1+L)%L+y*L)   ,1).adjoint() *r((x-1+L)%L+y*L) 
+                            + D((x+((y+1)%L)*L)   ,4).adjoint() *r(x+((y+1)%L)*L) 
+                            + D((x+((y-1+L)%L)*L) ,3).adjoint() *r(x+((y-1+L)%L)*L) 
+                            + D(x+y*L             ,0).adjoint() *r(x+y*L));         
+        }
+
+        for(int q1=0; q1<num_copies; q1++)
+            for(int q2=0; q2<num_copies; q2++){
+                for (x=0; x<L; x++) for(y=0; y<L; y++){
+                    A(q1,q2)+= (1.0)* ( (phi_tel[q1](x+y*L)).adjoint()*phi_temp2[q2](x+y*L))(0,0);
+                } }
+
+
+
+        for(int q1=0; q1<num_copies; q1++)
+            for (x=0; x<L; x++) for(y=0; y<L; y++){
+                src(q1)+=phi_tel[q1](x+y*L).dot(r_temp1(x+y*L));
+                // Note: .dot() means complex dot product c^dagger c 
+            }    
+    
+    }
+    // Alternate way without Hermiticity
+    else if (method==2){
+        for(int q1=0; q1<num_copies; q1++){
+            f_apply_D(phi_temp1[q1],phi_tel[q1],D,level,p);
+        }
+
+        for(int q1=0; q1<num_copies; q1++)
+            for(int q2=0; q2<num_copies; q2++){
+                for (x=0; x<L; x++) for(y=0; y<L; y++){
+                    A(q1,q2)+= (0.5)* ( (phi_tel[q1](x+y*L)).adjoint()*phi_temp1[q2](x+y*L))(0,0);
+                    A(q1,q2)+= (0.5)* ( (phi_tel[q2](x+y*L)).adjoint()*phi_temp1[q1](x+y*L))(0,0);
+                } }
+
+        for(int q1=0; q1<num_copies; q1++)
+            for (x=0; x<L; x++) for(y=0; y<L; y++){
+                src(q1)+=phi_tel[q1](x+y*L).dot(r(x+y*L));// Fix this
+                src(q1)+=(-0.5)* ( (phi(x+y*L)).adjoint()*phi_temp1[q1](x+y*L))(0,0);
+                src(q1)+=(0.5)* ( (phi_temp1[q1](x+y*L)).adjoint()*phi(x+y*L))(0,0);
+                // Note: .dot() means complex dot product c^dagger c 
+            }       
+    }
+    
+    else if (method==3){
+        
+        for(int q1=0; q1<num_copies; q1++){
+            // Apply A . x_i
+            f_apply_D(phi_temp1[q1],phi_tel[q1],D,level,p); }
+        
+        for(int q1=0; q1<num_copies; q1++) {
+            for(int q2=0; q2<num_copies; q2++){
+                for (x=0; x<L; x++) for(y=0; y<L; y++){
+                    A(q1,q2)+= (1.0)* ( (phi_temp1[q1](x+y*L)).adjoint()*phi_temp1[q2](x+y*L))(0,0);
+                    // A(q1,q2)+= (1.0)* real(( (phi_temp1[q1](x+y*L)).adjoint()*phi_temp1[q2](x+y*L))(0,0);
+                }
+                cout<<"\nA\t"<<q1<<","<<q2<<"\t"<<A(q1,q2);
+                A(q1,q2)=real(A(q1,q2));
+            }}
+
+        for(int q1=0; q1<num_copies; q1++){
+            for (x=0; x<L; x++) for(y=0; y<L; y++){
+                // src(q1)+=phi_temp1[q1](x+y*L).dot(r(x+y*L));
+                 src(q1)+=(phi_temp1[q1](x+y*L).adjoint()*r(x+y*L))(0,0);
+                // src(q1)+=real(phi_temp1[q1](x+y*L).dot(r(x+y*L)));
+                // src(q1)+=r(x+y*L).dot(phi_temp1[q1](x+y*L));
+                // Note: .dot() means complex dot product c^dagger c 
+            }
+            cout<<"\nsrc\t"<<q1<<"\t"<<src(q1)<<endl;
+            src(q1)=real(src(q1));
+        }
+    }
+    /* ***************** */
 //     // Solve the 4x4 or smaller matrix A x = b
     // cout<<A<<endl ;
     X = A.colPivHouseholderQr().solve(src);

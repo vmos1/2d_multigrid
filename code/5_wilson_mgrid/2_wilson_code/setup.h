@@ -518,7 +518,7 @@ void f_write_near_null(MArr1D* phi_null, params p, int t_flag){
     // Write near null vectors to file
     FILE* pfile;
     char fname[1024];
-    sprintf(fname,"Near-null_L%d_blk%d_ndof%d.txt",p.size[0],p.block_x,p.n_dof_scale);
+    snprintf(fname,1024,"Near-null_L%d_blk%d_ndof%d.txt",p.size[0],p.block_x,p.n_dof_scale);
     cout<<"Writing near_null vectors to file\t"<<fname<<endl;
     
     pfile = fopen (fname,"w"); 
@@ -534,7 +534,7 @@ void f_read_near_null(MArr1D* phi_null, params p, int t_flag){
     // Write near null vectors to file
     FILE* pfile;
     char fname[1024];
-    sprintf(fname,"Near-null_L%d_blk%d_ndof%d.txt",p.size[0],p.block_x,p.n_dof_scale);
+    snprintf(fname,1024,"Near-null_L%d_blk%d_ndof%d.txt",p.size[0],p.block_x,p.n_dof_scale);
     cout<<"Reading near_null vectors from file"<<fname<<endl;
     
     double re,im;
@@ -599,7 +599,7 @@ void f_read_gaugeU_heatbath(char* fname, MArr2D U, params p){
     int x,y,j,d1,d2;
     FILE* pfile;
     
-    // sprintf(fname,"gauge_config_files/phase%db3.0dat",p.size[0]);
+    // snprintf(fname,100,"gauge_config_files/phase%db3.0dat",p.size[0]);
     cout<<"Reading gauge field from file \t"<<fname<<endl;
     
     pfile = fopen (fname,"r");
