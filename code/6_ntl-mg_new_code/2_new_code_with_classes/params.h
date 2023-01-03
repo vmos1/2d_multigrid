@@ -29,11 +29,9 @@ class params {
         
         // Functions
         params (char *argv[]);
-        // void f_init_global_params(char *argv[]);
         void f_close();
 };
 
-// void params::f_init_global_params(char *argv[]){
 params::params(char *argv[]){
     // Initialize global parameters using input arguments
 
@@ -59,12 +57,12 @@ params::params(char *argv[]){
     n_dof[0]       = 1;
     n_dof_scale    = 2; // N_dof at higher levels
     gs_flag        = 1; // Gauss-seidel = 1, Jacobi = 0
-    total_copies   = 4;
-    quad           = 1;    // quad 1,2,3 or 4
-    res_threshold  = 1.0e-13;
-    max_iters=50000; 
+    total_copies   = 4;  // Number of copies for non-telescoping
+    quad           = 1;    // quadrant for blocking 1,2,3 or 4 
+    max_iters      = 50000; 
     write_interval = 1; // Interval at which you write values to file
-    beta           = 32.0;
+    beta           = 32.0; // Value of coupling for heat-bath code
+    res_threshold  = 1.0e-13;
     
     // file pointers to save MG output
     pfile1 = fopen ("results_gen_scaling.txt","a"); 
