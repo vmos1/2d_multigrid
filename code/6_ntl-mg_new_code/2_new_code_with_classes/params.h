@@ -13,6 +13,8 @@ class params {
         int gs_flag;
         int total_copies;
         int write_interval;
+        int max_iters; // max iterations for main code    
+        double beta;
 
         double m; //mass
         int size[20]; // Lattice size 
@@ -26,13 +28,13 @@ class params {
         FILE * pfile1, * pfile2, * pfile3, * pfile4[20];     // file pointers to save MG output
         
         // Functions
-        void f_init_global_params(char *argv[]);
+        params (char *argv[]);
+        // void f_init_global_params(char *argv[]);
         void f_close();
-        
 };
 
-
-void params::f_init_global_params(char *argv[]){
+// void params::f_init_global_params(char *argv[]){
+params::params(char *argv[]){
     // Initialize global parameters using input arguments
 
     // Extract input parameters and store them into variables
@@ -51,17 +53,19 @@ void params::f_init_global_params(char *argv[]){
         exit(1);
     }
 
-    a[0]         = 1.0;
-    size[0]      = L;
-    scale[0]     = 1.0/(4.0+m*a[0]*a[0]);// 1/(4+m^2 a^2) 
-    n_dof[0]     = 1;
-    n_dof_scale  = 2; // N_dof at higher levels
-    gs_flag      = 1; // Gauss-seidel = 1, Jacobi = 0
-    total_copies = 4;
-    quad         = 1;    // quad 1,2,3 or 4
-    res_threshold= 1.0e-13;
-    write_interval=1; // Interval at which you write values to file
-
+    a[0]           = 1.0;
+    size[0]        = L;
+    scale[0]       = 1.0/(4.0+m*a[0]*a[0]);// 1/(4+m^2 a^2) 
+    n_dof[0]       = 1;
+    n_dof_scale    = 2; // N_dof at higher levels
+    gs_flag        = 1; // Gauss-seidel = 1, Jacobi = 0
+    total_copies   = 4;
+    quad           = 1;    // quad 1,2,3 or 4
+    res_threshold  = 1.0e-13;
+    max_iters=50000; 
+    write_interval = 1; // Interval at which you write values to file
+    beta           = 32.0;
+    
     // file pointers to save MG output
     pfile1 = fopen ("results_gen_scaling.txt","a"); 
     pfile2 = fopen ("results_phi.txt","w"); 
@@ -105,5 +109,8 @@ void params::f_init_global_params(char *argv[]){
 void params::f_close(){ 
     // Close params file pointers
     fclose(pfile1); fclose(pfile2); fclose(pfile3);
+    
+    for (int lvl = 0; lvl < nlevels+1; lvl++) fclose(pfile4[lvl]);
+    // fclose(pfile4[nlevels+1]);
 }
 

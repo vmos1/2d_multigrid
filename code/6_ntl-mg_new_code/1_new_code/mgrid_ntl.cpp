@@ -28,7 +28,7 @@ int main (int argc, char *argv[])
     p=f_init_global_params(argv,p); // Initialize global structure
     
     double resmag;
-    int iter,lvl,d1,d2;
+    // int iter,lvl,d1,d2;
     // #################### 
     // Set parameters
     
@@ -53,6 +53,10 @@ int main (int argc, char *argv[])
     // Initialize arrays 
     f_init_arrays(U, D, phi, r, phi_null,p);
     
+    // cout<<phi_null[2](0)(0,1)<<endl;
+    // cout<<phi[3](0)(0)<<endl;
+    // exit(1);
+    
     if (p.t_flag != 0 & p.nlevels > 0)  // Initialize ntl structures
         f_init_non_tele( D_tel, phi_tel, r_tel, phi_tel_f, r_tel_f, phi_null_tel, p);
     
@@ -65,6 +69,7 @@ int main (int argc, char *argv[])
     resmag=f_get_residue_mag(D[0],phi[0],r[0],0,p);
     cout<<"\nResidue "<<resmag<<endl;
     
+    // exit(1);
     /* ###################### */
     // Setup operators for adaptive Mgrid
     if (p.nlevels>0)   f_compute_near_null(D,D_tel, phi_null, phi_null_tel, phi, phi_tel, p, p.quad);

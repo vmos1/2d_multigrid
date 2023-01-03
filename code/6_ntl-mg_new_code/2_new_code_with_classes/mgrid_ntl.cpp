@@ -29,42 +29,29 @@ std::mt19937 gen; // Random gen object
 int main (int argc, char *argv[])
     { 
     // Structure to hold global parameters
-    params p;
-    p.f_init_global_params(argv);
+    params p(argv);
     
-    double resmag;
-    // #################### 
-    // Set parameters
-    
-    int max_iters=50000; // max iterations for main code    
-    // Intialize random state
+    // Initialize random numbers
     int seed=4302529u;
     gen=std::mt19937(seed);// Set a random seed
-    // std::uniform_real_distribution<double> dist(-M_PI, M_PI);
     
-    // Define variables
+    // Define Multigrid Levels
     Level LVL[20];
-    
     for(int lvl = 0; lvl < p.nlevels+1; lvl++){
-        LVL[lvl].f_init(lvl, 1, p);   }
+        LVL[lvl].f_init_level(lvl, 1, p);   }
     
+    // Setup structures for non-telescoping
     Level NTL[20][4];
-    if (p.t_flag != 0 & p.nlevels > 0) { // Initialize ntl structures
-        for(int lvl = p.nlevels; lvl > (p.nlevels-2); lvl--){// Just use lowest 2 levels
-            for(int q_copy = 0; q_copy < p.n_copies; q_copy++) {
-                NTL[lvl][q_copy].f_init(lvl, 1, p);  }}
-    } // Only need D at bottom level and phi_null at one above bottom level. Currently using D and phi_null at two lowest levels. Need to fix this
-     
-    // Input sources at the top layer
+    f_init_NTL( NTL, p, 1);
+
+    // Create sources at the top layer
     LVL[0].f_define_source(p);
     
-    Gauge g;
-    g.f_init_gauge(p);
+    // Read-in the Gauge field
+    Gauge g(p,1);
     
-    LVL[0].f_compute_lvl0_matrix(g, p);      // Compute lvl0 D matrix=gauged Laplacian
-    
-    resmag=LVL[0].f_get_residue_mag(0,p);
-    cout<<"\nResidue "<<resmag<<endl;
+    // Compute lvl0 D matrix=gauged Laplacian
+    LVL[0].f_compute_lvl0_matrix(g, p);      
     
     /* ###################### */
     // Setup operators for adaptive Mgrid
@@ -75,7 +62,7 @@ int main (int argc, char *argv[])
     
     /* ###################### */
     // Implement entire MG algorithm
-    f_perform_MG(LVL, NTL, p, max_iters);
+    f_perform_MG(LVL, NTL, p);
     
     cout<<endl;
     p.f_close();

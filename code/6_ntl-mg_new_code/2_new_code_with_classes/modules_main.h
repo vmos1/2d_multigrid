@@ -4,6 +4,37 @@
 #include "level.h"
 #include "modules_indiv.h"
 
+void f_init_NTL(Level NTL[][4], params p, int rand){
+    
+    // Module to initialize NTL arrray of type Level[lvl][q_copy]
+    
+    int lvl;
+    // NTL only on lowest level : 
+    // At second-lowest level, Initialize ntl structures r, phi and phi_null
+    if (p.t_flag != 0 & p.nlevels > 0) { 
+        lvl=p.nlevels-1;
+        for(int q_copy = 0; q_copy < p.n_copies; q_copy++) {
+            f_init_vectors(NTL[lvl][q_copy].phi, p.size[lvl], p.n_dof[lvl],rand);
+            f_init_vectors(NTL[lvl][q_copy].r,   p.size[lvl], p.n_dof[lvl],rand);
+            f_init_near_null_vector(NTL[lvl][q_copy].phi_null, p.size[lvl], p.n_dof[lvl], p.n_dof[lvl+1],rand);
+        }
+        
+        // At lowest level, just initialize r, phi and D
+        lvl=p.nlevels;
+        for(int q_copy = 0; q_copy < p.n_copies; q_copy++) {
+            f_init_vectors(NTL[lvl][q_copy].phi, p.size[lvl], p.n_dof[lvl],rand);
+            f_init_vectors(NTL[lvl][q_copy].r,   p.size[lvl], p.n_dof[lvl],rand);
+            f_init_matrix (NTL[lvl][q_copy].D,   p.size[lvl], p.n_dof[lvl]);
+        }
+    }
+    
+    // Unoptimized initialization, if you don't care about memory : Initializes all structures in last 2 levels
+    // if (p.t_flag != 0 & p.nlevels > 0) { // Initialize ntl structures
+    //     for(int lvl = p.nlevels; lvl > (p.nlevels-2); lvl--){// Just use lowest 2 levels
+    //         for(int q_copy = 0; q_copy < p.n_copies; q_copy++) {
+    //             NTL[lvl][q_copy].f_init(lvl, 1, p);  }}
+    // } 
+}
 
 void f_read_near_null(Level * LVL, params p, int t_flag){
     // Write near null vectors to file
@@ -370,18 +401,23 @@ void f_MG_ntl(Level LVL[], Level NTL[][4], params p,int iter){
 }
 
 
-void f_perform_MG(Level LVL[], Level NTL[][4], params p, int max_iters){
+void f_perform_MG(Level LVL[], Level NTL[][4], params p){
     // Implement entire Multigrid algorithm : either regular or NTL
     
     double resmag;
-    for(int iter=0; iter < max_iters; iter++){
+    for(int iter=0; iter < p.max_iters; iter++){
         
         if(iter%p.write_interval == 0) {
             printf("\nAt iteration %d, the mag residue is %g",iter,resmag);   
             LVL[0].f_write_op(     0, iter+1, p.pfile2, p); 
-            for (int lvl=0; lvl<p.nlevels+1; lvl++) 
-                LVL[lvl].f_write_residue(lvl, iter+1, p.pfile4[lvl], p); 
-         }     
+            for (int lvl=0; lvl<p.nlevels+1; lvl++) { 
+                // In case of Non-telescoping, for lowest level, write just first copy of residue
+                if ((p.t_flag == 1) && (lvl == p.nlevels))
+                    NTL[lvl][0].f_write_residue(lvl, iter+1, p.pfile4[lvl], p); 
+                // Write residue at all levels to files
+                else 
+                    LVL[lvl].f_write_residue(lvl, iter+1, p.pfile4[lvl], p); 
+         }}
         
         // Do Multigrid 
         if ((p.t_flag == 1) && (p.nlevels>0)) // Non-telescoping Multigrid

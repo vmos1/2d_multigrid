@@ -14,7 +14,7 @@ class Level: public Near_null{
         // MArr1D phi_null_tel[4];
       
     // Functions
-        void f_init(int lvl, int rand, params p);
+        void f_init_level(int lvl, int rand, params p);
         void f_define_source(params p);
         void f_compute_lvl0_matrix(Gauge g, params p);
 
@@ -39,13 +39,17 @@ class Level: public Near_null{
 };
 
 
-void Level::f_init(int lvl, int rand, params p){
+void Level::f_init_level(int lvl, int rand, params p){
     // Initialize vectors phi and r
     f_init_vectors(phi,p.size[lvl],p.n_dof[lvl],rand);
     f_init_vectors(  r,p.size[lvl],p.n_dof[lvl],rand);    
+    
+    // Initialize D matrix
     f_init_matrix(   D,p.size[lvl],p.n_dof[lvl]);
-    f_init_near_null_vector(phi_null,p.size[lvl],p.n_dof[lvl],p.n_dof[lvl+1],rand);  
-
+    
+    // Initialize near-null vectors
+    // Can't initialize phi_null at lowest level, as it requires n_dof[lvl+1]
+    if (lvl!=p.nlevels) f_init_near_null_vector(phi_null,p.size[lvl],p.n_dof[lvl],p.n_dof[lvl+1],rand);  
 }
 
 void Level::f_define_source(params p){
@@ -167,7 +171,7 @@ void Level::f_near_null(int level, int quad, int num_iters, int gs_flag, params 
 
     // Create temp Level object
     Level lvl_temp;
-    lvl_temp.f_init(level, 0, p);
+    lvl_temp.f_init_level(level, 0, p);
         
     lvl_temp.D=D; // Set D to D matrix at that level
     // Set r to zero for A x = 0

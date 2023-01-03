@@ -331,21 +331,22 @@ void f_near_null(MArr1D phi_null, MArr2D D, int level, int quad, int num_iters, 
     if (num==0) num=1; // num should be at least 1
     
     for(int x = 0; x < L; x++) for(int y = 0; y < L; y++) for(d2 = 0; d2 < nf; d2++) r_zero(x+y*L)(d2)=0.0;  
-        // Relaxation with zero source
-        for(d1 = 0; d1 < nc; d1++){  // Generate near null vector set for each n_dof of coarse level
-            // Copy phi_null to a vector
-            for(int x = 0;x < L; x++) for(int y = 0; y < L; y++) 
-                phi_temp(x+y*L) = phi_null(x+y*L).row(d1); 
-            
-            for (int i=0;i<num;i++){// Solve Ax = 0, then global normalization
-                relax(D,phi_temp,r_zero, level, iters_per_norm,p,gs_flag); 
-                g_norm=f_g_norm(phi_temp,level,1,p);
-                // printf("d1: %d, num %d:\tGlobal norm %25.20e\n",d1,i,g_norm);
-            }
-            // f_block_norm(phi_temp,level,quad, p);
-            // Conjugate phi_null. This is to ensure gauge invariance. By storing as an nc x nf matrix, you are already transposing it. Now, also need to conjugate it.
-            for(int x=0; x<L; x++) for(int y=0; y<L; y++) phi_null(x+y*L).row(d1)=phi_temp(x+y*L).conjugate();      // Assign near-null vector to phi_null
+    // Relaxation with zero source
+    for(d1 = 0; d1 < nc; d1++){  // Generate near null vector set for each n_dof of coarse level
+        // Copy phi_null to a vector
+        for(int x = 0;x < L; x++) for(int y = 0; y < L; y++) 
+            phi_temp(x+y*L) = phi_null(x+y*L).row(d1); 
+
+        for (int i=0;i<num;i++){// Solve Ax = 0, then global normalization
+            relax(D,phi_temp,r_zero, level, iters_per_norm,p,gs_flag); 
+            g_norm=f_g_norm(phi_temp,level,1,p);
+            // printf("d1: %d, num %d:\tGlobal norm %25.20e\n",d1,i,g_norm);
         }
+        // f_block_norm(phi_temp,level,quad, p);
+        // Conjugate phi_null. This is to ensure gauge invariance. By storing as an nc x nf matrix, you are already transposing it. Now, also need to conjugate it.
+        for(int x=0; x<L; x++) for(int y=0; y<L; y++) phi_null(x+y*L).row(d1)=phi_temp(x+y*L).conjugate();      // Assign near-null vector to phi_null
+    }
+    
 }
 
 void f_norm_nn(MArr1D phi_null, int level, int quad, params p){

@@ -108,13 +108,13 @@ void f_init_matrix(MArr2D &D, int size, int ndof){
 }
 
 void f_init_near_null_vector(MArr1D &phi_null, int size, int ndof, int ndof2, int rand){
-    // Allocate memory and initialize structure for vectors like phi and r
+    // Allocate memory and initialize structure for near_null vectors
     // rand=1 for random initialization
     // ndof = p.n_dof[lvl], ndof2= p.n_dof[lvl+1]
     
     std::uniform_real_distribution<double> dist(-M_PI, M_PI);
     phi_null=MArr1D(size*size); 
-
+    
     for (int j = 0; j < size*size; j++){
         phi_null(j) = ColorMatrix(ndof2,ndof);
 
@@ -146,7 +146,7 @@ void f_init_arrays(MArr2D U, MArr2D * D, VArr1D * phi, VArr1D * r, MArr1D * phi_
             U(i,j) = ColorMatrix(p.n_dof[0],p.n_dof[0]);
             for(d1 = 0; d1 < p.n_dof[0]; d1++) for(d2 = 0; d2 < p.n_dof[0]; d2++){
                 if (d1==d2) U(i,j)(d1,d2)=1.0; 
-                // if (d1==d2) U(i,j)(d1,d2)=std::polar(1.0,dist2(gen)); // Gaussian local phase
+                if (d1==d2) U(i,j)(d1,d2)=std::polar(1.0,dist2(gen)); // Gaussian local phase
                 else U(i,j)(d1,d2)=0.0;
             }}
     
@@ -172,7 +172,8 @@ void f_init_arrays(MArr2D U, MArr2D * D, VArr1D * phi, VArr1D * r, MArr1D * phi_
     // Initialize D and near-null vectors
     for(int lvl = 0; lvl < p.nlevels+1; lvl++){
         f_init_matrix(D[lvl],p.size[lvl],p.n_dof[lvl]);
-        f_init_near_null_vector(phi_null[lvl],p.size[lvl],p.n_dof[lvl],p.n_dof[lvl+1],1);  }
+        if (lvl!=p.nlevels) f_init_near_null_vector(phi_null[lvl],p.size[lvl],p.n_dof[lvl],p.n_dof[lvl+1],1); 
+    }
 }
 
 void f_init_non_tele( MArr2D * D_tel, VArr1D * phi_tel, VArr1D * r_tel, VArr1D * phi_tel_f, VArr1D * r_tel_f, MArr1D * phi_null_tel, params p){
