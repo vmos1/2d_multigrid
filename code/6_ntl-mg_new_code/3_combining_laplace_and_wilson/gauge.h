@@ -25,13 +25,13 @@ Gauge::Gauge(params p, int heat_bath){
     mean_angle=0.0; width=0.2; // Center and Width of the gaussian distribution
     std::normal_distribution<double> dist2(mean_angle,width);
     
-    printf("psize %d, pndof %d\n",p.size[0],p.n_dof[0]);
+    // printf("\npsize %d, pndof %d\n",p.size[0],p.n_color);
     
     U= MArr2D(p.size[0]*p.size[0],2); 
     for(int i = 0; i < p.size[0]*p.size[0]; i++)
         for(int j = 0; j < 2; j++){
-            U(i,j) = ColorMatrix(p.n_dof[0],p.n_dof[0]); // U lives on zeroth level
-            for(int d1 = 0; d1 < p.n_dof[0]; d1++) for(int d2 = 0; d2 < p.n_dof[0]; d2++){
+            U(i,j) = ColorMatrix(p.n_color,p.n_color); // U lives on zeroth level
+            for(int d1 = 0; d1 < p.n_color; d1++) for(int d2 = 0; d2 < p.n_color; d2++){
                 if (d1==d2) U(i,j)(d1,d2)=1.0; 
                 // if (d1==d2) U(i,j)(d1,d2)=std::polar(1.0,dist2(gen)); // Gaussian local phase
                 else U(i,j)(d1,d2)=0.0;
@@ -62,36 +62,6 @@ void Gauge::f_plaquette(params p){
     cout<<"\nPlaquette "<<plaq<<endl;
 }
 
-// void Gauge::f_init_gauge(params p){
-    
-//     std::uniform_real_distribution<double> dist(-M_PI, M_PI);
-        
-//     // Generate Gaussian distribution about random mean angle
-//     double mean_angle, width;
-    
-//     mean_angle=0.0; width=0.2; // Center and Width of the gaussian distribution
-//     std::normal_distribution<double> dist2(mean_angle,width);
-    
-//     printf("psize %d, pndof %d\n",p.size[0],p.n_dof[0]);
-    
-//     U= MArr2D(p.size[0]*p.size[0],2); 
-//     for(int i = 0; i < p.size[0]*p.size[0]; i++)
-//         for(int j = 0; j < 2; j++){
-//             U(i,j) = ColorMatrix(p.n_dof[0],p.n_dof[0]); // U lives on zeroth level
-//             for(int d1 = 0; d1 < p.n_dof[0]; d1++) for(int d2 = 0; d2 < p.n_dof[0]; d2++){
-//                 if (d1==d2) U(i,j)(d1,d2)=1.0; 
-//                 // if (d1==d2) U(i,j)(d1,d2)=std::polar(1.0,dist2(gen)); // Gaussian local phase
-//                 else U(i,j)(d1,d2)=0.0;
-//             }}
-    
-//     // Read heat-bath gauge field
-//     char fname[100];
-    
-//     snprintf(fname,100,"../gauge_config_files/phase_%d_b%0.1f.dat",p.size[0],p.beta); // phase_{L}_b{beta}.dat
-//     f_read_gauge_heatbath(fname,p);   // Read gauge field config from file
-//     f_plaquette(p);
-// }
-
 void Gauge::f_read_gauge(params p){
     // Read phases from file
     double re,im;
@@ -109,7 +79,7 @@ void Gauge::f_read_gauge(params p){
     
     for(int x = 0; x < p.size[0]; x++) for (int y = 0; y < p.size[0]; y++)
         for(int j = 0; j < 2; j++)
-            for(int d1 = 0; d1 < p.n_dof[0]; d1++) for(int d2 = 0; d2 < p.n_dof[0]; d2++){
+            for(int d1 = 0; d1 < p.n_color; d1++) for(int d2 = 0; d2 < p.n_color; d2++){
                 fscanf(pfile,"%lf+i%lf\n",&re,&im);
                 U(x+p.size[0]*y,j)(d1,d2)=complex<double>(re,im);}
     fclose(pfile);
@@ -132,7 +102,7 @@ void Gauge::f_read_gauge_heatbath(char* fname, params p){
     
     for(int x = 0; x < p.size[0]; x++) for (int y=0; y<p.size[0]; y++)
         for(int j = 0; j< 2; j++)
-            for(int d1 = 0;d1 < p.n_dof[0]; d1++) for(int d2 = 0; d2 < p.n_dof[0]; d2++){
+            for(int d1 = 0;d1 < p.n_color; d1++) for(int d2 = 0; d2 < p.n_color; d2++){
                 fscanf(pfile,"%lf\n",&phase);
                 U(x+p.size[0]*y,j)(d1,d2)=std::polar(1.0,phase);}
                 // U(x+p.size[0]*y,j)(d1,d2)=complex<double>(re,im);}
@@ -147,7 +117,7 @@ void Gauge::f_write_gauge(params p){
     
     for(int x = 0; x < p.size[0]; x++) for (int y = 0; y < p.size[0]; y++)
         for(int j = 0; j < 2; j++)
-            for(int d1 = 0; d1 < p.n_dof[0]; d1++) for(int d2 = 0; d2 < p.n_dof[0]; d2++){
+            for(int d1 = 0; d1 < p.n_color; d1++) for(int d2 = 0; d2 < p.n_color; d2++){
                 fprintf(pfile,"%25.20e+i%25.20e\n", real(U(x+p.size[0]*y,j)(d1,d2)), imag(U(x+p.size[0]*y,j)(d1,d2)));}
     fclose(pfile);
 }

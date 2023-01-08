@@ -280,65 +280,9 @@ void f_MG_simple(Level LVL [], params p){
 }
 
 
-// // Module for non-telescoping
-// void f_min_res(Complex *a_copy, Level LVL[], Level NTL[][4], int num_copies, int level, params p){
-    
-//     Eigen::Matrix<Complex, Eigen::Dynamic, Eigen::Dynamic> A(num_copies,num_copies); // The min-res matrix (4x4)
-//     // Eigen::Matrix<Complex> A(4,4); // The min-res matrix (4x4)
-
-//     Eigen::Matrix<Complex, Eigen::Dynamic, 1> src(num_copies); // the RHS in A X = src
-//     Eigen::Matrix<Complex, Eigen::Dynamic, 1>  X(num_copies); // the solution X
-    
-//     int L;
-    
-//     for(int q1 = 0; q1 < num_copies; q1++) {
-//         X(q1)   = Complex(1.0/num_copies,0.0);
-//         src(q1) = Complex(0.0,0.0);
-//         for(int q2 = 0; q2 < num_copies; q2++){
-//             A(q1,q2) = Complex(0.0,0.0);
-//         }}
-    
-//     L = p.size[level];
-    
-//     // Temp vector for storing matrix product
-//     VArr1D phi_temp1[4], phi_temp2[4];
-//     int j_size = p.size[level];
-//     int j_ndof = p.n_dof[level];
-    
-//     for (int q_copy = 0; q_copy < 4; q_copy++){
-//         phi_temp1[q_copy] = VArr1D(j_size*j_size);
-//         phi_temp2[q_copy] = VArr1D(j_size*j_size);
-//         for (int j = 0; j < j_size*j_size ; j++){
-//             phi_temp1[q_copy](j) = ColorVector(j_ndof);
-//             phi_temp2[q_copy](j) = ColorVector(j_ndof);
-//             for(int d1 = 0; d1 < j_ndof; d1++) {
-//                 phi_temp1[q_copy](j)(d1) = 0.0; 
-//                 phi_temp2[q_copy](j)(d1) = 0.0; }
-//         }}
-    
-//     // Compute x_i^dagger . D . x_j  ,where i,j represent copy numbers
-    
-//     for(int q1 = 0; q1 < num_copies; q1++){ // Compute D . x_j 
-//         LVL[level].f_apply_D(phi_temp1[q1],NTL[level][q1].phi,level,p);
-//         }
-    
-//     for(int q1 = 0; q1 < num_copies; q1++) // Compute x_i^dagger . x_temp_i
-//         for(int q2 = 0; q2 < num_copies; q2++){
-//             for (int x = 0; x < L; x++) for(int y = 0; y < L; y++){
-//                 A(q1,q2)+= (1.0)* ( (NTL[level][q1].phi(x+y*L)).adjoint()*phi_temp1[q2](x+y*L))(0,0);
-//             } }
-    
-//     for(int q1 = 0; q1 < num_copies; q1++)
-//         for (int x = 0; x < L; x++) for(int y = 0; y < L; y++){
-//             src(q1)+= NTL[level][q1].phi(x+y*L).dot(LVL[level].r(x+y*L));
-//             // Note: .dot() means complex dot product c^dagger c 
-//         }
-// //     // Solve the 4x4 or smaller matrix A x = b
-//     X = A.colPivHouseholderQr().solve(src);    // X = A.().solve(src);
-//     for(int i=0; i<num_copies; i++) a_copy[i]=X(i); 
-// }
-
 void f_min_res(Complex *a_copy, Level LVL[], Level NTL[][4], int num_copies, int level, params p){
+    
+    // Module for non-telescoping with minimal-residual 
     
     Eigen::Matrix<Complex, Eigen::Dynamic, Eigen::Dynamic> A(num_copies,num_copies); // The min-res matrix (4x4)
     // Eigen::Matrix<Complex> A(4,4); // The min-res matrix (4x4)
@@ -375,37 +319,55 @@ void f_min_res(Complex *a_copy, Level LVL[], Level NTL[][4], int num_copies, int
     
     // Compute x_i^dagger . D . x_j  ,where i,j represent copy numbers
     
-    for(int q1 = 0; q1 < num_copies; q1++){ // Compute D . x_j 
-        LVL[level].f_apply_D(phi_temp1[q1],NTL[level][q1].phi,level,p);
-        }
-    
-    for(int q1 = 0; q1 < num_copies; q1++) // Compute x_i^dagger . x_temp_i
-        for(int q2 = 0; q2 < num_copies; q2++){
+    if (p.stencil=="laplace") {
+        
+        for(int q1 = 0; q1 < num_copies; q1++){ // Compute D . x_j 
+            LVL[level].f_apply_D(phi_temp1[q1],NTL[level][q1].phi,level,p);
+            }
+
+        for(int q1 = 0; q1 < num_copies; q1++) // Compute x_i^dagger . x_temp_i
+            for(int q2 = 0; q2 < num_copies; q2++){
+                for (int x = 0; x < L; x++) for(int y = 0; y < L; y++){
+                    A(q1,q2)+= (1.0)* ( (NTL[level][q1].phi(x+y*L)).adjoint()*phi_temp1[q2](x+y*L))(0,0);
+                } }
+
+        for(int q1 = 0; q1 < num_copies; q1++)
             for (int x = 0; x < L; x++) for(int y = 0; y < L; y++){
-                // A(q1,q2)+= (1.0)* ( (NTL[level][q1].phi(x+y*L)).adjoint()*phi_temp1[q2](x+y*L))(0,0);
-                A(q1,q2)+= (1.0)* ( (phi_temp1[q1](x+y*L)).adjoint()*phi_temp1[q2](x+y*L))(0,0);
-            } 
-                A(q1,q2)=real(A(q1,q2));
-        }
-    
-    for(int q1 = 0; q1 < num_copies; q1++){
-        for (int x = 0; x < L; x++) for(int y = 0; y < L; y++){
-            // src(q1)+= NTL[level][q1].phi(x+y*L).dot(LVL[level].r(x+y*L));
-            src(q1)+=(phi_temp1[q1](x+y*L).adjoint()*LVL[level].r(x+y*L))(0,0);
-            // Note: .dot() means complex dot product c^dagger c 
-        }
-        src(q1)=real(src(q1));
+                src(q1)+= NTL[level][q1].phi(x+y*L).dot(LVL[level].r(x+y*L));
+                // Note: .dot() means complex dot product c^dagger c 
+            }
     }
-//     // Solve the 4x4 or smaller matrix A x = b
+    
+    else if (p.stencil=="wilson") {
+        
+        for(int q1 = 0; q1 < num_copies; q1++){ // Compute D . x_j 
+            LVL[level].f_apply_D(phi_temp1[q1],NTL[level][q1].phi,level,p);
+            }
+
+        for(int q1 = 0; q1 < num_copies; q1++) // Compute x_i^dagger . x_temp_i
+            for(int q2 = 0; q2 < num_copies; q2++){
+                for (int x = 0; x < L; x++) for(int y = 0; y < L; y++){
+                    // A(q1,q2)+= (1.0)* ( (NTL[level][q1].phi(x+y*L)).adjoint()*phi_temp1[q2](x+y*L))(0,0);
+                    A(q1,q2)+= (1.0)* ( (phi_temp1[q1](x+y*L)).adjoint()*phi_temp1[q2](x+y*L))(0,0);
+                } 
+                    A(q1,q2)=real(A(q1,q2));
+            }
+
+        for(int q1 = 0; q1 < num_copies; q1++){
+            for (int x = 0; x < L; x++) for(int y = 0; y < L; y++){
+                // src(q1)+= NTL[level][q1].phi(x+y*L).dot(LVL[level].r(x+y*L));
+                src(q1)+=(phi_temp1[q1](x+y*L).adjoint()*LVL[level].r(x+y*L))(0,0);
+                // Note: .dot() means complex dot product c^dagger c 
+            }
+            src(q1)=real(src(q1));
+        }
+    }
+    
+    /********/
+    // Solve the 4x4 or smaller matrix A x = b
     X = A.colPivHouseholderQr().solve(src);    // X = A.().solve(src);
     for(int i=0; i<num_copies; i++) a_copy[i]=X(i); 
 }
-
-
-
-
-
-
 
 void f_scale_phi(Level L1, Level NTL[][4], Complex *a_copy, int num_copies, int size, int nc, int lvl){
     // Scale each copy and add to phi at next-to-lowest level

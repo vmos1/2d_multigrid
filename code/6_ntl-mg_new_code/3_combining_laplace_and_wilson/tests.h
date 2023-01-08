@@ -104,69 +104,157 @@ void Level::f_test3_hermiticity(int level, params p){
     printf("Test3\t");
     
     ColorMatrix m0(n,n), m1(n,n), m2(n,n), m3(n,n), m4(n,n);
-    // printf("l %d, n %d\n",l,n);
     
-    for(int x = 0; x < l; x++) for(int y = 0; y < l; y++) { 
-        m1=D(x+l*y                ,1);
-        m2=D((x+1)%l+l*y    ,2).adjoint();
-        m3=D(x+l*y                ,3);
-        m4=D(x+(((y+1)%l)*l),4).adjoint();
-        m0=D(x+l*y                ,0);
+    if (p.stencil=="laplace") {
+        // Test for each site
+        for(int x = 0; x < l; x++) for(int y = 0; y < l; y++) { 
+            m1 = D(x+l*y                ,1);
+            m2 = D((x+1)%l+l*y    ,2).adjoint();
+            m3 = D(x+l*y                ,3);
+            m4 = D(x+(((y+1)%l)*l),4).adjoint();
+            m0 = D(x+l*y                ,0);
+        
+    
+            for (int d1 = 0; d1 < n; d1++) for(int d2 = 0; d2 < n; d2++){
+                a1=m1(d1,d2);a2=m2(d1,d2);
+                a3=m3(d1,d2);a4=m4(d1,d2);
+                a5=m0(d1,d2);
+                a6=m0.adjoint()(d1,d2);
 
-        for (int d1 = 0; d1 < n; d1++) for(int d2 = 0; d2 < n; d2++){
-            a1=m1(d1,d2);a2=m2(d1,d2);
-            a3=m3(d1,d2);a4=m4(d1,d2);
-            a5=m0(d1,d2);
-            a6=m0.adjoint()(d1,d2);
+                if ((fabs(real(a1)-real(a2))>Epsilon) | (fabs(imag(a1)-imag(a2))>Epsilon)){
+                    printf("%d,%d-> %d,%d\t",x,y,(x+1)%l,y);
+                    printf("Diff:%20.20e+i %20.20e\t %20.20e+i %20.20e, %20.20e+i %20.20e\n",real(a1)-real(a2),imag(a1)-imag(a2),real(a1),imag(a1),real(a2),imag(a2));}
+
+                if ((fabs(real(a3)-real(a4))>Epsilon) | (fabs(imag(a3)-imag(a4))>Epsilon)){
+                    printf("%d,%d-> %d,%d\t",x,y,x,(y+1)%l);
+                    printf("Diff:%20.20e+i %20.20e\t %20.20e+i %20.20e, %20.20e+i %20.20e\n",real(a3)-real(a4),imag(a3)-imag(a4),real(a3),imag(a3),real(a4),imag(a4));}
+
+                if ((fabs(real(a5)-real(a6))>Epsilon) | (fabs(imag(a5)-imag(a6))>Epsilon)){// Diagonal matrix must be Hermitian
+                // if(1>0){
+                    printf("%d,%d-> %d,%d\t",x,y,x,y);
+                    printf("Diagonal Diff:%20.20e+i %20.20e\t %20.20e+i%20.20e, %20.20e+i%20.20e\n",real(a5)-real(a6),imag(a5)-imag(a6),real(a5),imag(a5),real(a6),imag(a6));}
+
+            }
+        }
+    }
+    
+    else if(p.stencil=="wilson") {
+        // Define gamma5
+        ColorMatrix gamma5(n,n); 
+        for (int d1 = 0; d1 < n; d1++) for (int d2 = 0; d2 < n; d2++) {
+            if (d1 == d2){ // Diagonal entries are 1 or -1
+                if (d1 < n/2)  gamma5(d1,d2)=Complex(1.0,0.0);
+                else         gamma5(d1,d2)=Complex(-1.0,0.0);
+                }
+            else  gamma5(d1,d2)=Complex(0.0,0.0);
+        }
+            // Test for each site
+            for(int x = 0; x < l; x++) for(int y = 0; y < l; y++) {
+                m1 =        D(x+l*y          ,1);
+                m2 = gamma5*D((x+1)%l+l*y    ,2).adjoint()*gamma5;
+                m3 =        D(x+l*y          ,3);
+                m4 = gamma5*D(x+(((y+1)%l)*l),4).adjoint()*gamma5;
+                m0 =        D(x+l*y          ,0);
             
-            if ((fabs(real(a1)-real(a2))>Epsilon) | (fabs(imag(a1)-imag(a2))>Epsilon)){
-                printf("%d,%d-> %d,%d\t",x,y,(x+1)%l,y);
-                printf("Diff:%20.20e+i %20.20e\t %20.20e+i %20.20e, %20.20e+i %20.20e\n",real(a1)-real(a2),imag(a1)-imag(a2),real(a1),imag(a1),real(a2),imag(a2));}
 
-            if ((fabs(real(a3)-real(a4))>Epsilon) | (fabs(imag(a3)-imag(a4))>Epsilon)){
-                printf("%d,%d-> %d,%d\t",x,y,x,(y+1)%l);
-                printf("Diff:%20.20e+i %20.20e\t %20.20e+i %20.20e, %20.20e+i %20.20e\n",real(a3)-real(a4),imag(a3)-imag(a4),real(a3),imag(a3),real(a4),imag(a4));}
+            for (int d1 = 0; d1 < n; d1++) for(int d2 = 0; d2 < n; d2++){
+                a1=m1(d1,d2);a2=m2(d1,d2);
+                a3=m3(d1,d2);a4=m4(d1,d2);
+                a5=m0(d1,d2);
+                a6 = (gamma5*m0.adjoint()*gamma5)(d1,d2);
 
-            if ((fabs(real(a5)-real(a6))>Epsilon) | (fabs(imag(a5)-imag(a6))>Epsilon)){// Diagonal matrix must be Hermitian
-            // if(1>0){
-                printf("%d,%d-> %d,%d\t",x,y,x,y);
-                printf("Diagonal Diff:%20.20e+i %20.20e\t %20.20e+i%20.20e, %20.20e+i%20.20e\n",real(a5)-real(a6),imag(a5)-imag(a6),real(a5),imag(a5),real(a6),imag(a6));}
+                if ((fabs(real(a1)-real(a2))>Epsilon) | (fabs(imag(a1)-imag(a2))>Epsilon)){
+                    printf("%d,%d-> %d,%d\t",x,y,(x+1)%l,y);
+                    printf("Diff:%20.20e+i %20.20e\t %20.20e+i %20.20e, %20.20e+i %20.20e\n",real(a1)-real(a2),imag(a1)-imag(a2),real(a1),imag(a1),real(a2),imag(a2));}
 
+                if ((fabs(real(a3)-real(a4))>Epsilon) | (fabs(imag(a3)-imag(a4))>Epsilon)){
+                    printf("%d,%d-> %d,%d\t",x,y,x,(y+1)%l);
+                    printf("Diff:%20.20e+i %20.20e\t %20.20e+i %20.20e, %20.20e+i %20.20e\n",real(a3)-real(a4),imag(a3)-imag(a4),real(a3),imag(a3),real(a4),imag(a4));}
+
+                if ((fabs(real(a5)-real(a6))>Epsilon) | (fabs(imag(a5)-imag(a6))>Epsilon)){// Diagonal matrix must be Hermitian
+                // if(1>0){
+                    printf("%d,%d-> %d,%d\t",x,y,x,y);
+                    printf("Diagonal Diff:%20.20e+i %20.20e\t %20.20e+i%20.20e, %20.20e+i%20.20e\n",real(a5)-real(a6),imag(a5)-imag(a6),real(a5),imag(a5),real(a6),imag(a6));}
+
+            }
         }
     }
 }
              
 void Level::f_test4_hermiticity_full(VArr1D vec, int level, params p, int quad){
-    // Test if all D's are Hermitian i.e. vec^dagger . D . vec = 0 
-    // < v_c | D_c | v_c > = real 
+    /* 
+    Test if all D's are Hermitian i.e. vec^dagger . D . vec = 0 
+    < v | D | v > = real 
     
-    int Lf,x,y,nf,d1;
+    For Wilson : D^dagger = gamma_5 . D . gamma_5
+    Therefore, D . gamma_5 is Hermitian -> < v | D . gamma_5 | v > = real
+    */
+    
+    int L,n;
     double Epsilon=1.0e-12;
     
-    Lf=p.size[level];
-    nf=p.n_dof[level];
+    L=p.size[level];
+    n=p.n_dof[level];
     
-    VArr1D vec_f1(Lf*Lf), vec_f2(Lf*Lf);
-    for(int i=0; i< Lf*Lf; i++) {
-        vec_f1(i) = ColorVector(nf);
-        vec_f2(i) = ColorVector(nf);
-        for(int d1 = 0; d1 < nf; d1++) { vec_f1(i)(d1) = 0.0; vec_f2(i)(d1) = 0.0;}
+    VArr1D vec_f1(L*L), vec_f2(L*L);
+    for(int i=0; i< L*L; i++) {
+        vec_f1(i) = ColorVector(n);
+        vec_f2(i) = ColorVector(n);
+        for(int d1 = 0; d1 < n; d1++) { vec_f1(i)(d1) = 0.0; vec_f2(i)(d1) = 0.0;}
     }
     
     Complex a1(0,0);
     
     printf("Test4\t");
     
-    // Step 1: v_1=D_f vec
-    f_apply_D(vec_f1,vec,level,p);
+    if (p.stencil=="laplace") {
+        // Step 1: v_1=D_f vec
+        f_apply_D(vec_f1,vec,level,p);
+    }
+    
+    else if(p.stencil=="wilson") {
+        // Define gamma5
+        ColorMatrix gamma5(n,n); 
+        for (int d1 = 0; d1 < n; d1++) for (int d2 = 0; d2 < n; d2++) {
+            if (d1 == d2){ // Diagonal entries are 1 or -1
+                if (d1 < n/2)  gamma5(d1,d2)=Complex(1.0,0.0);
+                else         gamma5(d1,d2)=Complex(-1.0,0.0);
+                }
+            else  gamma5(d1,d2)=Complex(0.0,0.0);
+        }
+        
+        // Create temp Level object
+        Level lvl_temp;
+        lvl_temp.f_init_level(level, 0, p);
+        
+        // lvl_temp.D=D; // Set D to D matrix at that level
+        
+        // // Define matrix D_prime to store D.gamma_5
+        // MArr2D D_prime(L*L,5);
+        // for (int j = 0; j < L*L ; j++){
+        //     for (int k=0; k<5; k++){
+        //         D_prime(j, k) = ColorMatrix(n,n);
+        //         // Initialize
+        //         D_prime(j,k)=D(j,k)*gamma5;
+        //         }}
+        
+        // Define matrix D_prime to store D.gamma_5
+        for (int j = 0; j < L*L ; j++){
+            for (int k=0; k<5; k++){
+                lvl_temp.D(j,k)=D(j,k)*gamma5;
+                }}
+        
+        // Step 1: v_1=D_f vec
+        lvl_temp.f_apply_D(vec_f1,vec,level,p);
+    }
     
     // Step 2: vec^dagger . v_1 = vec^dagger . D . vec
-    for (int x = 0; x < Lf; x++){
-        for(y = 0; y < Lf; y++){
-            a1+= (vec(x+y*Lf).adjoint()*vec_f1(x+y*Lf))(0,0);
+    for (int x = 0; x < L; x++){
+        for(int y = 0; y < L; y++){
+            a1+= (vec(x+y*L).adjoint()*vec_f1(x+y*L))(0,0);
         }}
+    
     if (fabs(imag(a1))>Epsilon){
-    // if (1>0){
         printf("Answer is complex:  %f+i %f\n",real(a1),imag(a1));
     }
 }
@@ -210,7 +298,6 @@ void f_MG_tests(Level LVL[], Level NTL[][4], params p, int quad){
         else {
             if (lvl>0){
                 LVL[lvl-1].f_test1_restriction_prolongation(vec, lvl-1, p, quad);
-                // f_test2_D(vec,D[lvl],D[lvl-1],phi_null[lvl-1],lvl-1, p, quad);    
                 f_test2_D(vec, LVL[lvl], LVL[lvl-1], LVL[lvl-1], lvl-1, p, quad);    
             }
             LVL[lvl].f_test3_hermiticity(lvl, p);
