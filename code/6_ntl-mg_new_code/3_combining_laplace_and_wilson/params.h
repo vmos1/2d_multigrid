@@ -65,7 +65,7 @@ params::params(char *argv[]){
     write_interval = 1; // Interval at which you write values to file
     beta           = 32.0; // Value of coupling for heat-bath code
     res_threshold  = 1.0e-13;
-    stencil        = "laplace"; 
+    // stencil        = "laplace"; 
     stencil        = "wilson";
     
     // Stencil- dependent initializations

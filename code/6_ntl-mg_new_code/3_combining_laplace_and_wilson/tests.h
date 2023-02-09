@@ -187,7 +187,7 @@ void Level::f_test4_hermiticity_full(VArr1D vec, int level, params p, int quad){
     < v | D | v > = real 
     
     For Wilson : D^dagger = gamma_5 . D . gamma_5
-    Therefore, D . gamma_5 is Hermitian -> < v | D . gamma_5 | v > = real
+    Therefore, (D . gamma_5) is Hermitian -> < v | D . gamma_5 | v > = real
     */
     
     int L,n;
@@ -196,11 +196,10 @@ void Level::f_test4_hermiticity_full(VArr1D vec, int level, params p, int quad){
     L=p.size[level];
     n=p.n_dof[level];
     
-    VArr1D vec_f1(L*L), vec_f2(L*L);
+    VArr1D vec_f1(L*L);
     for(int i=0; i< L*L; i++) {
         vec_f1(i) = ColorVector(n);
-        vec_f2(i) = ColorVector(n);
-        for(int d1 = 0; d1 < n; d1++) { vec_f1(i)(d1) = 0.0; vec_f2(i)(d1) = 0.0;}
+        for(int d1 = 0; d1 < n; d1++) { vec_f1(i)(d1) = 0.0;}
     }
     
     Complex a1(0,0);
@@ -227,18 +226,7 @@ void Level::f_test4_hermiticity_full(VArr1D vec, int level, params p, int quad){
         Level lvl_temp;
         lvl_temp.f_init_level(level, 0, p);
         
-        // lvl_temp.D=D; // Set D to D matrix at that level
-        
-        // // Define matrix D_prime to store D.gamma_5
-        // MArr2D D_prime(L*L,5);
-        // for (int j = 0; j < L*L ; j++){
-        //     for (int k=0; k<5; k++){
-        //         D_prime(j, k) = ColorMatrix(n,n);
-        //         // Initialize
-        //         D_prime(j,k)=D(j,k)*gamma5;
-        //         }}
-        
-        // Define matrix D_prime to store D.gamma_5
+        // Set D to store D.gamma_5
         for (int j = 0; j < L*L ; j++){
             for (int k=0; k<5; k++){
                 lvl_temp.D(j,k)=D(j,k)*gamma5;

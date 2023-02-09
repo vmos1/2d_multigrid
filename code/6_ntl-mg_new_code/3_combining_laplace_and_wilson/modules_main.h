@@ -309,9 +309,11 @@ void f_min_res(Complex *a_copy, Level LVL[], Level NTL[][4], int num_copies, int
     for (int q_copy = 0; q_copy < 4; q_copy++){
         phi_temp1[q_copy] = VArr1D(j_size*j_size);
         phi_temp2[q_copy] = VArr1D(j_size*j_size);
+        
         for (int j = 0; j < j_size*j_size ; j++){
             phi_temp1[q_copy](j) = ColorVector(j_ndof);
             phi_temp2[q_copy](j) = ColorVector(j_ndof);
+            
             for(int d1 = 0; d1 < j_ndof; d1++) {
                 phi_temp1[q_copy](j)(d1) = 0.0; 
                 phi_temp2[q_copy](j)(d1) = 0.0; }
@@ -347,19 +349,20 @@ void f_min_res(Complex *a_copy, Level LVL[], Level NTL[][4], int num_copies, int
         for(int q1 = 0; q1 < num_copies; q1++) // Compute x_i^dagger . x_temp_i
             for(int q2 = 0; q2 < num_copies; q2++){
                 for (int x = 0; x < L; x++) for(int y = 0; y < L; y++){
-                    // A(q1,q2)+= (1.0)* ( (NTL[level][q1].phi(x+y*L)).adjoint()*phi_temp1[q2](x+y*L))(0,0);
-                    A(q1,q2)+= (1.0)* ( (phi_temp1[q1](x+y*L)).adjoint()*phi_temp1[q2](x+y*L))(0,0);
+                    A(q1,q2)+= (1.0)* ( (NTL[level][q1].phi(x+y*L)).adjoint()*phi_temp1[q2](x+y*L))(0,0);
+                    // A(q1,q2)+= (1.0)* ( (phi_temp1[q1](x+y*L)).adjoint()*phi_temp1[q2](x+y*L))(0,0);
                 } 
-                    A(q1,q2)=real(A(q1,q2));
+                    // A(q1,q2)=real(A(q1,q2));
             }
 
         for(int q1 = 0; q1 < num_copies; q1++){
             for (int x = 0; x < L; x++) for(int y = 0; y < L; y++){
                 // src(q1)+= NTL[level][q1].phi(x+y*L).dot(LVL[level].r(x+y*L));
-                src(q1)+=(phi_temp1[q1](x+y*L).adjoint()*LVL[level].r(x+y*L))(0,0);
+                //src(q1)+=(phi_temp1[q1](x+y*L).adjoint()*LVL[level].r(x+y*L))(0,0);
+                src(q1)+=(LVL[level].r(x+y*L).adjoint()*phi_temp1[q1](x+y*L))(0,0);
                 // Note: .dot() means complex dot product c^dagger c 
             }
-            src(q1)=real(src(q1));
+            // src(q1)=real(src(q1));
         }
     }
     
